@@ -1,24 +1,38 @@
-import { useEffect, useState, useContext, useMemo } from "react";
-import { Link, Navigate } from "react-router-dom";
-// ... (keep your existing icon imports)
+import { useEffect, useState, useContext, useMemo, useCallback } from "react";
+import { Navigate } from "react-router-dom";
+import { ExternalLink } from "lucide-react";
 import { Context } from "../main";
 import api from "../api/client";
 import MainLayout from "../layout/MainLayout";
+import {
+  LiveContestCard,
+  UpcomingContestCard,
+  PastContestRow,
+  LiveContestSkeleton,
+  ContestCardSkeleton,
+  TableSkeleton,
+  NoLiveContest,
+  NoUpcomingContests,
+  NoPastContests,
+} from "../components/contestlist";
 
 export default function ContestsListPage() {
   const { isAuthenticated, user } = useContext(Context);
-  const [rawContests, setRawContests] = useState([]);
+  const [contests, setContests] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [registeringId, setRegisteringId] = useState(null);
+  const [error, setError] = useState(null);
 
+  // Fetch contests
   useEffect(() => {
     const fetchContests = async () => {
       try {
+        setLoading(true);
         const { data } = await api.get("/contests");
-        // Ensure we always have an array even if the API fails or is empty
-        setRawContests(data.contests || []);
-      } catch (err) {
-        console.error("Fetch error:", err);
-        setRawContests([]);
+        setContests(data.contests || []);
+      } catch {
+        setError("Failed to load contests");
+        setContests([]);
       } finally {
         setLoading(false);
       }
@@ -26,85 +40,179 @@ export default function ContestsListPage() {
     fetchContests();
   }, []);
 
-  // --- DATA TRANSFORMATION LAYER ---
-  const { live, upcoming, past } = useMemo(() => {
+  // Handle registration
+  const handleRegister = useCallback(
+    async (contestId) => {
+      try {
+        setRegisteringId(contestId);
+        await api.put(`/contests/${contestId}/register`);
+
+        // Optimistic UI update
+        setContests((prev) =>
+          prev.map((c) =>
+            c._id === contestId
+              ? { ...c, participants: [...(c.participants || []), user._id] }
+              : c
+          )
+        );
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.error("Registration error:", err);
+        alert(err.response?.data?.message || "Failed to register for contest");
+      } finally {
+        setRegisteringId(null);
+      }
+    },
+    [user]
+  );
+
+  // Categorize contests
+  const { liveContest, upcomingContests, pastContests } = useMemo(() => {
     const now = new Date();
-    
-    // Helper to format backend data into our UI structure
-    const format = (c) => ({
-      id: c._id || c.id,
-      name: c.title || c.name || "Untitled Contest",
-      startTime: new Date(c.startTime),
-      endTime: new Date(c.endTime),
-      participants: c.participants?.length || 0,
-      prize: c.prizePool || "Credits",
-      registered: c.participants?.includes(user?._id),
-      // Add fallback defaults for mock fields not yet in backend
-      leader: c.currentLeader || "TBD",
-      division: c.division || "All",
-      dateLabel: new Date(c.startTime).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+
+    let live = null;
+    const upcoming = [];
+    const past = [];
+
+    contests.forEach((contest) => {
+      const start = new Date(contest.start_time);
+      const end = new Date(contest.end_time);
+
+      if (now >= start && now <= end) {
+        if (!live || end < new Date(live.end_time)) {
+          live = contest;
+        }
+      } else if (now < start) {
+        upcoming.push(contest);
+      } else {
+        past.push(contest);
+      }
     });
 
+    // Sort upcoming by start time
+    upcoming.sort((a, b) => new Date(a.start_time) - new Date(b.start_time));
+
+    // Sort past by start time
+    past.sort((a, b) => new Date(b.start_time) - new Date(a.start_time));
+
     return {
-      live: rawContests.find(c => new Date(c.startTime) <= now && new Date(c.endTime) >= now),
-      upcoming: rawContests.filter(c => new Date(c.startTime) > now).map(format),
-      past: rawContests.filter(c => new Date(c.endTime) < now).map(format),
+      liveContest: live,
+      upcomingContests: upcoming.slice(0, 2), // Show only first 2
+      pastContests: past.slice(0, 5), // Show only first 5
     };
-  }, [rawContests, user]);
+  }, [contests]);
 
   if (!isAuthenticated) return <Navigate to="/auth" />;
 
   return (
     <MainLayout>
       <div className="max-w-7xl mx-auto px-6 lg:px-20 py-10 space-y-12">
-        
-        {/* 1. LIVE SECTION (Conditional Rendering) */}
-        {live ? (
-          <section>
-            <div className="flex items-center justify-between mb-6">
-               <h3 className="text-2xl font-bold flex items-center gap-3">
-                  Live Now <span className="animate-pulse bg-red-500/10 text-red-500 text-xs px-2 py-1 rounded-full">● Live</span>
-               </h3>
-            </div>
-            {/* ... Render live card using {live.name} etc ... */}
-          </section>
-        ) : !loading && (
-          <div className="bg-white/5 border border-dashed border-white/10 rounded-2xl p-10 text-center text-slate-500">
-            No contests currently live. Check the upcoming schedule below!
+        {/* Error Message */}
+        {error && (
+          <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 text-red-400 text-center">
+            {error}
           </div>
         )}
 
-        {/* 2. UPCOMING SECTION */}
+        {/* Live Now Section */}
         <section>
-          <h3 className="text-2xl font-bold mb-6">Upcoming Challenges</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {upcoming.length > 0 ? (
-              upcoming.map((contest) => (
-                <UpcomingCard key={contest.id} contest={contest} />
-              ))
-            ) : !loading && (
-              <p className="text-slate-500">No upcoming contests scheduled yet.</p>
-            )}
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-2xl font-bold flex items-center gap-3">
+              Live Now
+            </h3>
           </div>
+
+          {loading ? (
+            <LiveContestSkeleton />
+          ) : liveContest ? (
+            <LiveContestCard contest={liveContest} currentUser={user} />
+          ) : (
+            <NoLiveContest />
+          )}
         </section>
 
-        {/* 3. PAST CONTESTS SECTION */}
-        <section>
-          <h3 className="text-2xl font-bold mb-6">Past Contests</h3>
-          <div className="bg-card-dark border border-white/5 rounded-2xl overflow-hidden">
-            {past.length > 0 ? (
-              <PastContestTable contests={past} />
-            ) : (
-              <div className="p-10 text-center text-slate-500">Archive is currently empty.</div>
-            )}
-          </div>
+        {/* Upcoming Section */}
+        <section id="upcoming">
+          <h3 className="text-2xl font-bold mb-6">Upcoming Contests</h3>
+          {loading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <ContestCardSkeleton />
+              <ContestCardSkeleton />
+              <ContestCardSkeleton />
+            </div>
+          ) : upcomingContests.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {upcomingContests.map((contest) => (
+                <UpcomingContestCard
+                  key={contest._id}
+                  contest={contest}
+                  currentUser={user}
+                  onRegister={handleRegister}
+                  registeringId={registeringId}
+                />
+              ))}
+              {/* More contests placeholder card */}
+              {upcomingContests.length < 3 && (
+                <div className="bg-card-dark border border-dashed border-white/10 rounded-2xl p-6 flex flex-col justify-between">
+                  <div className="flex flex-col items-center justify-center h-full py-8 text-center">
+                    <p className="text-slate-500 text-sm font-medium">
+                      More contests being announced soon
+                    </p>
+                    <button className="mt-4 text-xs text-accent-yellow underline font-bold">
+                      SET NOTIFICATION
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <NoUpcomingContests />
+          )}
         </section>
 
+        {/* Past Contests Section */}
+        <section>
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-2xl font-bold">Past Contests</h3>
+            {pastContests.length > 0 && (
+              <button className="text-slate-400 hover:text-white text-sm font-semibold flex items-center gap-1 transition-colors">
+                View Archive <ExternalLink className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+
+          {loading ? (
+            <TableSkeleton />
+          ) : pastContests.length > 0 ? (
+            <div className="bg-card-dark border border-white/5 rounded-2xl overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-white/5 text-slate-400 text-xs uppercase tracking-widest font-black">
+                      <th className="px-8 py-4">Contest Name</th>
+                      <th className="px-8 py-4">Date</th>
+                      <th className="px-8 py-4 text-center">Final Standings</th>
+                      <th className="px-8 py-4">Personal Result</th>
+                      <th className="px-8 py-4 text-right">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/5">
+                    {pastContests.map((contest) => (
+                      <PastContestRow
+                        key={contest._id}
+                        contest={contest}
+                        currentUser={user}
+                      />
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : (
+            <NoPastContests />
+          )}
+        </section>
       </div>
     </MainLayout>
   );
 }
-
-// Sub-components to keep the main file clean
-function UpcomingCard({ contest }) { /* ... move your card JSX here ... */ }
-function PastContestTable({ contests }) { /* ... move your table JSX here ... */ }

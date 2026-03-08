@@ -3,6 +3,8 @@ import "./TestCasesConsole.css";
 
 const tabs = ["TEST CASES", "CONSOLE", "RESULT"];
 
+const normalize = (str) => String(str || "").replace(/\r\n/g, "\n").trimEnd();
+
 export default function TestCasesConsole({
   testCases = [],
   runResult = null,
@@ -16,11 +18,40 @@ export default function TestCasesConsole({
   const getCaseStatus = (index) => {
     if (submissionResult?.run_output?.length) {
       const out = submissionResult.run_output[index];
-      return out?.status === "Accepted" ? "pass" : out?.status ? "fail" : "locked";
+      if (!out) return "locked";
+      return out.status === "Accepted" ? "pass" : "fail";
     }
-    if (runResult && index === 0) return runResult.status === "Accepted" ? "pass" : "fail";
-    return index === 0 ? "pass" : "locked";
+    if (runResult?.case_results?.length) {
+      const c = runResult.case_results[index];
+      if (!c) return "neutral";
+      return c.status === "Accepted" ? "pass" : "fail";
+    }
+    if (runResult && index === 0) {
+      const actual = normalize(runResult.stdout);
+      const expected = normalize(testCases[0]?.expected_output);
+      if (actual) return actual === expected ? "pass" : "fail";
+      return runResult.status === "Accepted" ? "pass" : "fail";
+    }
+    return "neutral";
   };
+
+  const getYourOutput = () => {
+    if (submissionResult?.run_output?.[selectedCaseIndex]) {
+      const out = submissionResult.run_output[selectedCaseIndex];
+      return normalize(out.stdout) || normalize(out.stderr) || "";
+    }
+    if (runResult?.case_results?.[selectedCaseIndex]) {
+      const c = runResult.case_results[selectedCaseIndex];
+      return normalize(c.stdout) || normalize(c.stderr) || "";
+    }
+    if (runResult && selectedCaseIndex === 0) {
+      return normalize(runResult.stdout) || normalize(runResult.stderr) || "";
+    }
+    return null;
+  };
+
+  const yourOutput = getYourOutput();
+  const hasResult = runResult || submissionResult;
 
   return (
     <div className="test-cases-console">
@@ -30,7 +61,9 @@ export default function TestCasesConsole({
             key={tab}
             type="button"
             onClick={() => setActiveTab(tab)}
-            className={`test-cases-console__tab ${activeTab === tab ? "test-cases-console__tab--active" : ""}`}
+            className={`test-cases-console__tab ${
+              activeTab === tab ? "test-cases-console__tab--active" : ""
+            }`}
           >
             {tab}
           </button>
@@ -41,59 +74,106 @@ export default function TestCasesConsole({
         {activeTab === "TEST CASES" && (
           <div className="test-cases-console__row">
             <div className="test-cases-console__case-list">
-              {testCases.map((_, i) => (
-                <button
-                  key={i}
-                  type="button"
-                  onClick={() => onSelectCase?.(i)}
-                  className={`test-cases-console__case-btn ${selectedCaseIndex === i ? "test-cases-console__case-btn--selected" : ""}`}
-                >
-                  {getCaseStatus(i) === "pass" && <span style={{ color: "var(--color-success)" }}>✓</span>}
-                  {getCaseStatus(i) === "fail" && <span style={{ color: "var(--color-error)" }}>✗</span>}
-                  {getCaseStatus(i) === "locked" && <span>🔒</span>}
-                  Case {i + 1}
-                </button>
-              ))}
+              {testCases.length === 0 ? (
+                <p style={{ color: "var(--color-muted)", padding: "8px" }}>
+                  No test cases available.
+                </p>
+              ) : (
+                testCases.map((_, i) => {
+                  const status = getCaseStatus(i);
+                  return (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => onSelectCase?.(i)}
+                      className={`test-cases-console__case-btn ${
+                        selectedCaseIndex === i
+                          ? "test-cases-console__case-btn--selected"
+                          : ""
+                      }`}
+                    >
+                      {status === "pass" && (
+                        <span style={{ color: "var(--color-success)" }}>✓ </span>
+                      )}
+                      {status === "fail" && (
+                        <span style={{ color: "var(--color-error)" }}>✗ </span>
+                      )}
+                      {status === "locked" && <span>🔒 </span>}
+                      Case {i + 1}
+                    </button>
+                  );
+                })
+              )}
             </div>
-            {selectedCase && (
+
+            {selectedCase ? (
               <div className="test-cases-console__case-details">
                 <div>
-                  <div className="test-cases-console__label">YOUR INPUT</div>
-                  <pre className="test-cases-console__pre">{selectedCase.input || "(none)"}</pre>
+                  <div className="test-cases-console__label">INPUT</div>
+                  <pre className="test-cases-console__pre">
+                    {selectedCase.input || "(none)"}
+                  </pre>
                 </div>
                 <div>
                   <div className="test-cases-console__label">EXPECTED OUTPUT</div>
-                  <pre className="test-cases-console__pre">{selectedCase.expected_output ?? ""}</pre>
+                  <pre className="test-cases-console__pre">
+                    {normalize(selectedCase.expected_output) || "(none)"}
+                  </pre>
                 </div>
-                {((runResult && selectedCaseIndex === 0) || submissionResult?.run_output?.[selectedCaseIndex]) && (
+                {hasResult && yourOutput !== null && (
                   <div>
                     <div className="test-cases-console__label">YOUR OUTPUT</div>
                     <pre className="test-cases-console__pre">
-                      {submissionResult?.run_output?.[selectedCaseIndex]?.stdout ?? runResult?.stdout ?? ""}
+                      {yourOutput || "(no output)"}
                     </pre>
                   </div>
                 )}
               </div>
+            ) : (
+              <p style={{ color: "var(--color-muted)", padding: "8px" }}>
+                Select a test case.
+              </p>
             )}
           </div>
         )}
+
         {activeTab === "CONSOLE" && (
           <pre className="test-cases-console__console-pre">
-            {runResult?.stderr || runResult?.compile_output || "No console output."}
+            {runResult?.case_results?.[0]?.stderr ||
+              runResult?.case_results?.[0]?.compile_output ||
+              runResult?.stderr ||
+              runResult?.compile_output ||
+              "No console output."}
           </pre>
         )}
+
         {activeTab === "RESULT" && (
           <div className="test-cases-console__console-pre">
             {submissionResult ? (
-              <p className={submissionResult.status === "Accepted" ? "test-cases-console__result--pass" : "test-cases-console__result--fail"}>
-                {submissionResult.status} — {submissionResult.passed_tests}/{submissionResult.total_tests} test cases passed.
+              <p
+                className={
+                  submissionResult.status === "Accepted"
+                    ? "test-cases-console__result--pass"
+                    : "test-cases-console__result--fail"
+                }
+              >
+                {submissionResult.status} — {submissionResult.passed_tests}/
+                {submissionResult.total_tests} test cases passed.
               </p>
             ) : runResult ? (
-              <p className={runResult.status === "Accepted" ? "test-cases-console__result--pass" : "test-cases-console__result--fail"}>
-                {runResult.status}
+              <p
+                className={
+                  getCaseStatus(0) === "pass"
+                    ? "test-cases-console__result--pass"
+                    : "test-cases-console__result--fail"
+                }
+              >
+                {getCaseStatus(0) === "pass" ? "Accepted" : "Wrong Answer"}
               </p>
             ) : (
-              <p className="test-cases-console__result--muted">Run or submit to see result.</p>
+              <p className="test-cases-console__result--muted">
+                Run or submit to see result.
+              </p>
             )}
           </div>
         )}

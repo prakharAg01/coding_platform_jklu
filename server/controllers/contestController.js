@@ -20,7 +20,7 @@ export const registerForContest = catchAsyncError(async (req, res, next) => {
     return next(new ErrorHandler("Cannot register for a contest that has already started.", 400));
   }
   await Contest.findByIdAndUpdate(req.params.id, {
-    $addToSet: { participants: req.user._id }
+    $addToSet: { participants: req.user._id },
   });
   res.status(200).json({ success: true, message: "Registered successfully!" });
 });
@@ -30,7 +30,12 @@ export const createContest = catchAsyncError(async (req, res, next) => {
   if (!name || !start_time || !end_time) {
     return next(new ErrorHandler("name, start_time and end_time are required.", 400));
   }
-  const finalSlug = slug || name.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
+  const finalSlug =
+    slug ||
+    name
+      .toLowerCase()
+      .replace(/\s+/g, "-")
+      .replace(/[^a-z0-9-]/g, "");
   const contest = await Contest.create({
     name,
     slug: finalSlug,
@@ -73,9 +78,16 @@ export const getActiveContest = catchAsyncError(async (req, res, next) => {
 
 export const getLeaderboard = catchAsyncError(async (req, res, next) => {
   const { id: contest_id } = req.params;
-  const hasNewLeaderboard = await ContestLeaderboard.exists({ contest_id: new mongoose.Types.ObjectId(contest_id) });
+
+  // Convert to ObjectId once and reuse everywhere
+  const contestObjectId = new mongoose.Types.ObjectId(contest_id);
+
+  const hasNewLeaderboard = await ContestLeaderboard.exists({
+    contest_id: contestObjectId,
+  });
+
   if (hasNewLeaderboard) {
-    const rows = await ContestLeaderboard.find({ contest_id })
+    const rows = await ContestLeaderboard.find({ contest_id: contestObjectId })
       .sort({ solved_count: -1, penalty_minutes: 1, last_solved_at: 1 })
       .populate("user_id", "name email")
       .lean();
@@ -88,58 +100,52 @@ export const getLeaderboard = catchAsyncError(async (req, res, next) => {
       solvedCount: r.solved_count,
       penaltyMinutes: r.penalty_minutes,
       lastSolvedAt: r.last_solved_at,
+      solved: r.solved || [],
     }));
+
     return res.status(200).json({ success: true, leaderboard });
   }
 
-  //backup
-
+  // Fallback to aggregation from submissions
   const accepted = await Submission.aggregate([
-
     {
       $match: {
-        contest_id: new mongoose.Types.ObjectId(contest_id),
-        status: "Accepted"
-      }
+        contest_id: contestObjectId,
+        status: "Accepted",
+      },
     },
-
     {
       $group: {
         _id: { user: "$user_id", problem: "$problem_id" },
-        lastSubmission: { $max: "$submitted_at" }
-      }
+        lastSubmission: { $max: "$submitted_at" },
+      },
     },
-
     {
       $group: {
         _id: "$_id.user",
         count: { $sum: 1 },
-        lastSubmission: { $max: "$lastSubmission" }
-      }
+        lastSubmission: { $max: "$lastSubmission" },
+      },
     },
-
     { $sort: { count: -1, lastSubmission: 1 } },
-
     {
       $lookup: {
         from: "users",
         localField: "_id",
         foreignField: "_id",
-        as: "user"
-      }
+        as: "user",
+      },
     },
-
     { $unwind: "$user" },
-
     {
       $project: {
         name: "$user.name",
         email: "$user.email",
-        solvedCount: "$count"
-      }
-    }
-
+        solvedCount: "$count",
+      },
+    },
   ]);
+
   const rank = accepted.map((r, i) => ({ rank: i + 1, ...r }));
   return res.status(200).json({ success: true, leaderboard: rank });
 });

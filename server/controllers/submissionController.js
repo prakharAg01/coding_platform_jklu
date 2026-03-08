@@ -6,134 +6,161 @@ import { Contest } from "../models/contestModel.js";
 import { ContestLeaderboard } from "../models/leaderboardModel.js";
 import { createSubmission, createSubmissionWithLimits, normalizeStatus } from "../utils/judge0.js";
 
-
-//output clean karne ke liye
-function normalizeOutput(out){
+function normalizeOutput(out) {
   return String(out || "")
-  .replace(/\r\n/g, "\n")
-  .trimEnd();
+    .replace(/\r\n/g, "\n")
+    .trimEnd();
 }
- 
-//time limit set kar rhe hai problem ki 
-function buildJudge0Limits(problem){
+
+function buildJudge0Limits(problem) {
   const timeLimit = Number(problem?.time_limit);
   const memoryLimitMb = Number(problem?.memory_limit);
-  const limits ={};
-  if(Number.isFinite(timeLimit) && timeLimit>0){
+  const limits = {};
+  if (Number.isFinite(timeLimit) && timeLimit > 0) {
     limits.cpu_time_limit = timeLimit;
-    limits.wall_time_limit = Math.max(timeLimit,timeLimit+1);
+    limits.wall_time_limit = Math.max(timeLimit, timeLimit + 1);
   }
-  if(Number.isFinite(memoryLimitMb)&& memoryLimitMb>0){
-    limits.memory_limit=Math.floor(memoryLimitMb*1024);
+  if (Number.isFinite(memoryLimitMb) && memoryLimitMb > 0) {
+    limits.memory_limit = Math.floor(memoryLimitMb * 1024);
   }
   return limits;
 }
 
-async function updateContestLeaderboardOnSubmission({contest_id,problem_id,user_id,status,submitted_at}){
-  if(!contest_id) return;
+async function updateContestLeaderboardOnSubmission({ contest_id, problem_id, user_id, status, submitted_at }) {
+  if (!contest_id) return;
+
   const contest = await Contest.findById(contest_id).select("start_time").lean();
-  if(!contest?.start_time) return;
-  const now = submitted_at? new Date(submitted_at) : new Date();
-  const minutesSinceStart = Math.max(0,Math.floor((now - new Date(contest.start_time))/60000));
-  problemKey= String(problem_id);
-  
+  if (!contest?.start_time) return;
 
-  const lb = ContestLeaderboard.findOne({contest_id,user_id});
-  const doc = lb || 
-  (await ContestLeaderboard.create({
-    contest_id,
-    user_id,
-    solved_count :0,
-    penalty_minutes:0,
-    last_solved_at:null,
-    attempts:{},
-    soved:[]
-  }))
+  const now = submitted_at ? new Date(submitted_at) : new Date();
+  const minutesSinceStart = Math.max(0, Math.floor((now - new Date(contest.start_time)) / 60000));
+  const problemKey = String(problem_id);
 
-  const alreadySolved = doc.solved.some((s)=>String(s.problem_id)===problemKey);
-  if(alreadySolved) return;
+  let doc = await ContestLeaderboard.findOne({ contest_id, user_id });
+  if (!doc) {
+    doc = await ContestLeaderboard.create({
+      contest_id,
+      user_id,
+      solved_count: 0,
+      penalty_minutes: 0,
+      last_solved_at: null,
+      attempts: {},
+      solved: [],
+    });
+  }
 
-  if(status !="Accepted"){
-    const prev = Number(doc.attempts?.get(problemKey)||0);
-    doc.attempts.set(problemKey,prev+1);
+  const alreadySolved = doc.solved.some((s) => String(s.problem_id) === problemKey);
+  if (alreadySolved) return;
+
+  if (status !== "Accepted") {
+    const prev = Number(doc.attempts?.get(problemKey) || 0);
+    doc.attempts.set(problemKey, prev + 1);
     await doc.save();
     return;
   }
 
-  const wrongAttempts = Number(doc.attempts?.get(problemKey)||0);
-  const penalty = minutesSinceStart + wrongAttempts*20;
-  doc.solved.push({problem_id,solved_at:now, penalty_minutes:penalty});
-  doc.solved_count=doc.solved.length;
-  doc.penalty_minutes=doc.solved.reduce((sum,s)=>sum + (Number(s.penalty_minutes)),0);
-  doc.last_solved_at=now;
-  await doc.save();
+  const wrongAttempts = Number(doc.attempts?.get(problemKey) || 0);
+  const penalty = minutesSinceStart + wrongAttempts * 20;
 
+  doc.solved.push({ problem_id, solved_at: now, penalty_minutes: penalty });
+  doc.solved_count = doc.solved.length;
+  doc.penalty_minutes = doc.solved.reduce((sum, s) => sum + Number(s.penalty_minutes), 0);
+  doc.last_solved_at = now;
+  await doc.save();
 }
 
-
-
 /**
- * RUN CODE: run against a single (sample) test case; do not save submission.
+ * RUN CODE: run against all sample test cases; do not save submission.
  */
-
 export const runCode = catchAsyncError(async (req, res, next) => {
   const { source_code, language_id, problem_id, custom_input } = req.body;
   if (!source_code || language_id == null) {
     return next(new ErrorHandler("source_code and language_id are required.", 400));
   }
 
-  let stdin = custom_input || "";
+  let sampleCases = [];
   let limits = {};
-  if (!custom_input && problem_id) {
+
+  if (problem_id) {
     const problem = await Problem.findById(problem_id);
     if (problem?.test_cases?.length) {
-      const sample = problem.test_cases.find((t) => t.is_sample) || problem.test_cases[0];
-      stdin = sample.input || "";
+      const samples = problem.test_cases.filter((t) => t.is_sample);
+      sampleCases = samples.length ? samples : [problem.test_cases[0]];
     }
     limits = buildJudge0Limits(problem);
   }
 
-  let result;
-  try {
-    result = Object.keys(limits).length
-    ? await createSubmissionWithLimits(source_code, Number(language_id), stdin,limits,true)
-    :await createSubmission(source_code, Number(language_id), stdin,true);
-  } catch (e) {
-    if (e.message.includes("JUDGE0_API_KEY")) {
-      return res.status(503).json({
-        success: false,
-        message: "Code execution service is not configured.",
-        run_result: { status: "Configuration Error", stdout: "", stderr: e.message },
+  // If custom input provided, just run that one
+  if (custom_input) {
+    sampleCases = [{ input: custom_input, expected_output: "" }];
+  }
+
+  if (sampleCases.length === 0) {
+    sampleCases = [{ input: "", expected_output: "" }];
+  }
+
+  // Run all sample cases
+  const results = [];
+  for (let i = 0; i < sampleCases.length; i++) {
+    const tc = sampleCases[i];
+    let result;
+    try {
+      result = Object.keys(limits).length
+        ? await createSubmissionWithLimits(source_code, Number(language_id), tc.input, limits)
+        : await createSubmission(source_code, Number(language_id), tc.input);
+    } catch (e) {
+      results.push({
+        index: i + 1,
+        status: "Error",
+        stdout: "",
+        stderr: e.message,
+        compile_output: "",
+        time: null,
+        memory: null,
       });
+      continue;
     }
-    return res.status(502).json({
-      success: false,
-      message: "Code execution failed.",
-      run_result: { status: "Error", stdout: "", stderr: e.message },
+
+    const statusId = result.status?.id;
+    const description = result.status?.description;
+    const status = normalizeStatus(statusId, description);
+    const actual = normalizeOutput(result.stdout);
+    const expected = normalizeOutput(tc.expected_output);
+    const passed = status === "Accepted" && actual === expected;
+
+    results.push({
+      index: i + 1,
+      status: passed ? "Accepted" : status === "Accepted" ? "Wrong Answer" : status,
+      stdout: result.stdout || "",
+      stderr: result.stderr || "",
+      compile_output: result.compile_output || "",
+      time: result.time,
+      memory: result.memory,
     });
   }
 
-  const statusId = result.status?.id;
-  const status = statusId != null ? normalizeStatus(statusId) : "Runtime Error";
-  const run_result = {
-    status,
-    stdout: result.stdout || "",
-    stderr: result.stderr || "",
-    compile_output: result.compile_output || "",
-    time: result.time,
-    memory: result.memory,
-  };
+  const allPassed = results.every((r) => r.status === "Accepted");
+  const firstResult = results[0] || {};
 
   return res.status(200).json({
     success: true,
     message: "Run completed.",
-    run_result,
+    run_result: {
+      status: allPassed
+        ? "Accepted"
+        : results.find((r) => r.status !== "Accepted")?.status || "Wrong Answer",
+      stdout: firstResult.stdout || "",
+      stderr: firstResult.stderr || "",
+      compile_output: firstResult.compile_output || "",
+      time: firstResult.time,
+      memory: firstResult.memory,
+      case_results: results,
+    },
   });
 });
 
-
 /**
- * Get submissions for a user (and optional problem/contest) for leaderboard/history.
+ * SUBMIT: run against all test cases, determine Accepted/Wrong Answer, save submission.
  */
 export const submitCode = catchAsyncError(async (req, res, next) => {
   const { source_code, language_id, language, problem_id, contest_id } = req.body;
@@ -145,9 +172,8 @@ export const submitCode = catchAsyncError(async (req, res, next) => {
 
   const problem = await Problem.findById(problem_id);
   if (!problem) return next(new ErrorHandler("Problem not found.", 404));
-  const allCases = problem.test_cases || [];
-  const hiddenCases = allCases.filter((t) => !t.is_sample);
-  const testCases = hiddenCases.length ? hiddenCases : allCases;
+
+  const testCases = problem.test_cases || [];
   if (testCases.length === 0) {
     return next(new ErrorHandler("Problem has no test cases.", 400));
   }
@@ -163,7 +189,12 @@ export const submitCode = catchAsyncError(async (req, res, next) => {
     const tc = testCases[i];
     let result;
     try {
-      result = await createSubmissionWithLimits(source_code, Number(language_id), tc.input, limits, true);
+      result = await createSubmissionWithLimits(
+        source_code,
+        Number(language_id),
+        tc.input,
+        limits
+      );
     } catch (e) {
       finalStatus = "Runtime Error";
       outputs.push({ index: i + 1, status: "Error", stderr: e.message });
@@ -171,7 +202,8 @@ export const submitCode = catchAsyncError(async (req, res, next) => {
     }
 
     const statusId = result.status?.id;
-    const status = statusId != null ? normalizeStatus(statusId) : "Runtime Error";
+    const description = result.status?.description;
+    const status = normalizeStatus(statusId, description);
     const actual = normalizeOutput(result.stdout);
     const expected = normalizeOutput(tc.expected_output);
 
@@ -217,7 +249,7 @@ export const submitCode = catchAsyncError(async (req, res, next) => {
     problem_id,
     user_id,
     status: finalStatus,
-    submitted_at: submission.submitted_at,
+    submitted_at: submission.submission_time,
   });
 
   return res.status(200).json({
@@ -253,6 +285,3 @@ export const getSubmissions = catchAsyncError(async (req, res, next) => {
 
   return res.status(200).json({ success: true, submissions });
 });
-
-
-

@@ -1,6 +1,6 @@
 import { useEffect, useState, useContext, useMemo, useCallback } from "react";
-import { Navigate } from "react-router-dom";
-import { ExternalLink } from "lucide-react";
+import { Navigate, Link } from "react-router-dom";
+import { ExternalLink, ChevronLeft, ChevronRight } from "lucide-react";
 import { Context } from "../main";
 import api from "../api/client";
 import MainLayout from "../layout/MainLayout";
@@ -22,6 +22,10 @@ export default function ContestsListPage() {
   const [loading, setLoading] = useState(true);
   const [registeringId, setRegisteringId] = useState(null);
   const [error, setError] = useState(null);
+
+  // Carousel State
+  const [currentLiveIndex, setCurrentLiveIndex] = useState(0);
+  const [isHoveringLive, setIsHoveringLive] = useState(false);
 
   // Fetch contests
   useEffect(() => {
@@ -56,7 +60,6 @@ export default function ContestsListPage() {
           )
         );
       } catch (err) {
-        // eslint-disable-next-line no-console
         console.error("Registration error:", err);
         alert(err.response?.data?.message || "Failed to register for contest");
       } finally {
@@ -67,10 +70,10 @@ export default function ContestsListPage() {
   );
 
   // Categorize contests
-  const { liveContest, upcomingContests, pastContests } = useMemo(() => {
+  const { liveContests, upcomingContests, pastContests } = useMemo(() => {
     const now = new Date();
 
-    let live = null;
+    const live = [];
     const upcoming = [];
     const past = [];
 
@@ -79,15 +82,16 @@ export default function ContestsListPage() {
       const end = new Date(contest.end_time);
 
       if (now >= start && now <= end) {
-        if (!live || end < new Date(live.end_time)) {
-          live = contest;
-        }
+        live.push(contest);
       } else if (now < start) {
         upcoming.push(contest);
       } else {
         past.push(contest);
       }
     });
+
+    // Sort live contests by ending soonest
+    live.sort((a, b) => new Date(a.end_time) - new Date(b.end_time));
 
     // Sort upcoming by start time
     upcoming.sort((a, b) => new Date(a.start_time) - new Date(b.start_time));
@@ -96,13 +100,37 @@ export default function ContestsListPage() {
     past.sort((a, b) => new Date(b.start_time) - new Date(a.start_time));
 
     return {
-      liveContest: live,
-      upcomingContests: upcoming.slice(0, 2), // Show only first 2
-      pastContests: past.slice(0, 5), // Show only first 5
+      liveContests: live,
+      upcomingContests: upcoming,
+      pastContests: past.slice(0, 5),
     };
   }, [contests]);
 
+  // Reset carousel index when live contests change
+  useEffect(() => {
+    setCurrentLiveIndex(0);
+  }, [liveContests.length]);
+
+  // Carousel Navigation Callbacks
+  const goToPreviousLive = useCallback(() => {
+    setCurrentLiveIndex((prev) =>
+      prev === 0 ? liveContests.length - 1 : prev - 1
+    );
+  }, [liveContests.length]);
+
+  const goToNextLive = useCallback(() => {
+    setCurrentLiveIndex((prev) =>
+      prev === liveContests.length - 1 ? 0 : prev + 1
+    );
+  }, [liveContests.length]);
+
+  const goToLiveSlide = useCallback((index) => {
+    setCurrentLiveIndex(index);
+  }, []);
+
   if (!isAuthenticated) return <Navigate to="/auth" />;
+
+  const currentLiveContest = liveContests[currentLiveIndex];
 
   return (
     <MainLayout>
@@ -119,13 +147,69 @@ export default function ContestsListPage() {
           <div className="flex items-center justify-between mb-6">
             <h3 className="text-2xl font-bold flex items-center gap-3">
               Live Now
+              {liveContests.length > 1 && (
+                <span className="text-xs bg-red-500 text-white px-2 py-0.5 rounded-full shadow-[0_0_10px_rgba(239,68,68,0.3)]">
+                  {liveContests.length} Active
+                </span>
+              )}
             </h3>
           </div>
 
           {loading ? (
             <LiveContestSkeleton />
-          ) : liveContest ? (
-            <LiveContestCard contest={liveContest} currentUser={user} />
+          ) : liveContests.length > 0 ? (
+            <div
+              className="relative rounded-xl overflow-hidden shadow-lg"
+              onMouseEnter={() => setIsHoveringLive(true)}
+              onMouseLeave={() => setIsHoveringLive(false)}
+            >
+              <div className="transition-opacity duration-300">
+                <LiveContestCard
+                  contest={currentLiveContest}
+                  currentUser={user}
+                />
+              </div>
+
+              {/* Navigation Arrows & Dots - appear on hover */}
+              {liveContests.length > 1 && (
+                <>
+                  <button
+                    onClick={goToPreviousLive}
+                    className={`absolute left-4 top-1/2 -translate-y-1/2 z-30 flex h-10 w-10 items-center justify-center rounded-full bg-black/50 text-white transition-all duration-300 hover:bg-accent-yellow hover:text-black ${
+                      isHoveringLive ? "opacity-100" : "opacity-0"
+                    }`}
+                    aria-label="Previous contest"
+                  >
+                    <ChevronLeft className="w-6 h-6" />
+                  </button>
+                  <button
+                    onClick={goToNextLive}
+                    className={`absolute right-4 top-1/2 -translate-y-1/2 z-30 flex h-10 w-10 items-center justify-center rounded-full bg-black/50 text-white transition-all duration-300 hover:bg-accent-yellow hover:text-black ${
+                      isHoveringLive ? "opacity-100" : "opacity-0"
+                    }`}
+                    aria-label="Next contest"
+                  >
+                    <ChevronRight className="w-6 h-6" />
+                  </button>
+
+                  {/* Pagination Dots */}
+                  <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
+                    {liveContests.map((_, index) => (
+                      <button
+                        key={index}
+                        onClick={() => goToLiveSlide(index)}
+                        className={`h-2.5 rounded-full transition-all duration-300 ${
+                          index === currentLiveIndex
+                            ? "bg-accent-yellow w-6" // Using accent-yellow like your dashboard
+                            : "bg-white/50 w-2.5 hover:bg-white/70"
+                        }`}
+                        aria-label={`Go to slide ${index + 1}`}
+                      />
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
           ) : (
             <NoLiveContest />
           )}
@@ -151,7 +235,6 @@ export default function ContestsListPage() {
                   registeringId={registeringId}
                 />
               ))}
-              {/* More contests placeholder card */}
               {upcomingContests.length < 3 && (
                 <div className="bg-card-dark border border-dashed border-white/10 rounded-2xl p-6 flex flex-col justify-between">
                   <div className="flex flex-col items-center justify-center h-full py-8 text-center">
@@ -175,9 +258,12 @@ export default function ContestsListPage() {
           <div className="flex items-center justify-between mb-6">
             <h3 className="text-2xl font-bold">Past Contests</h3>
             {pastContests.length > 0 && (
-              <button className="text-slate-400 hover:text-white text-sm font-semibold flex items-center gap-1 transition-colors">
+              <Link
+                to="/contests/archive"
+                className="text-slate-400 hover:text-white text-sm font-semibold flex items-center gap-1 transition-colors"
+              >
                 View Archive <ExternalLink className="w-4 h-4" />
-              </button>
+              </Link>
             )}
           </div>
 

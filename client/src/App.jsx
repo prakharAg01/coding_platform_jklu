@@ -4,11 +4,13 @@ import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import Dashboard from "./pages/Dashboard";
 import ContestsListPage from "./pages/ContestsListPage";
 import ContestPage from "./pages/ContestPage";
-import ChallengePage from "./pages/ChallengePage";
+import ProblemPage from "./pages/ProblemPage";
 import PracticePage from "./pages/PracticePage";
+import ChallengesPage from "./pages/ChallengesPage";
 import Auth from "./pages/Auth";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
+import ContestArchivePage from "./pages/ContestArchivePage";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import axios from "axios";
@@ -44,7 +46,8 @@ const App = () => {
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/contests" element={<ContestsListPage />} />
           <Route path="/contests/:id" element={<ContestPage />} />
-          <Route path="/problems/:id" element={<ChallengePage />} />
+          <Route path="/problems/:id" element={<ProblemPage />} />
+          <Route path="/challenges" element={<ChallengesPage />} />
           <Route path="/practice" element={<PracticePage />} />
           <Route path="/auth" element={<Auth />} />
           <Route
@@ -53,6 +56,7 @@ const App = () => {
           />
           <Route path="/password/forgot" element={<ForgotPassword />} />
           <Route path="/password/reset/:token" element={<ResetPassword />} />
+          <Route path="/contests/archive" element={<ContestArchivePage />} />
         </Routes>
         <ToastContainer theme="colored" />
       </Router>

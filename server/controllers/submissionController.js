@@ -248,6 +248,7 @@ export const submitCode = catchAsyncError(async (req, res, next) => {
     contest_id: contest_id || null,
     problem_id,
     user_id,
+    language,
     status: finalStatus,
     submitted_at: submission.submission_time,
   });

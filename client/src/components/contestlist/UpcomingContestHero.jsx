@@ -50,13 +50,13 @@ export default function UpcomingContestHero({
               </span>
             </div>
             
-            <div className="flex items-center gap-[0.4rem] border-l border-white/10 pl-[1.25rem]">
+            {/* <div className="flex items-center gap-[0.4rem] border-l border-white/10 pl-[1.25rem]">
               <Blocks className="w-[1.25rem] h-[1.25rem] text-accent-yellow" />
               <span className="text-slate-200 font-semibold text-[0.9rem]">
                 {contest.problems?.length || 0}{" "}
                 <span className="text-slate-500 font-normal">Problems</span>
               </span>
-            </div>
+            </div> */}
 
             <div className="flex items-center gap-[0.4rem] border-l border-white/10 pl-[1.25rem]">
             <Users className="w-[1.25rem] h-[1.25rem] text-accent-yellow"/>

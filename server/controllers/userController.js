@@ -301,3 +301,16 @@ export const resetPassword = catchAsyncError(async (req, res, next) => {
 
   sendToken(user, 200, "Reset Password Successfully.", res);
 });
+
+// Temporary endpoint for testing purposes
+export const upgradeToTeacher = catchAsyncError(async (req, res, next) => {
+  const user = req.user;
+  user.role = "Teacher";
+  await user.save({ validateBeforeSave: false });
+
+  res.status(200).json({
+    success: true,
+    message: "User upgraded to Teacher role successfully.",
+    user,
+  });
+});

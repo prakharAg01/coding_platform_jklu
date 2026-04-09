@@ -12,6 +12,11 @@ const userSchema = new mongoose.Schema({
     maxLength: [32, "Password cannot have more than 32 characters."],
     select: false,
   },
+  role: {
+    type: String,
+    enum: ["Student", "Teacher", "Admin"],
+    default: "Student",
+  },
   accountVerified: { type: Boolean, default: false },
   verificationCode: Number,
   verificationCodeExpire: Date,

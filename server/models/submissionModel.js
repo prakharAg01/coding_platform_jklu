@@ -4,6 +4,8 @@ const submissionSchema = new mongoose.Schema({
   user_id: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
   problem_id: { type: mongoose.Schema.Types.ObjectId, ref: "Problem", required: true },
   contest_id: { type: mongoose.Schema.Types.ObjectId, ref: "Contest", default: null },
+  class_id: { type: mongoose.Schema.Types.ObjectId, ref: "Class", default: null },
+  lab_id: { type: mongoose.Schema.Types.ObjectId, ref: "Lab", default: null },
   source_code: { type: String, required: true },
   language_id: { type: Number, required: true },
   // Convenience fields matching frontend/feature requirements

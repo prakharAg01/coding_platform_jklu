@@ -163,7 +163,7 @@ export const runCode = catchAsyncError(async (req, res, next) => {
  * SUBMIT: run against all test cases, determine Accepted/Wrong Answer, save submission.
  */
 export const submitCode = catchAsyncError(async (req, res, next) => {
-  const { source_code, language_id, language, problem_id, contest_id } = req.body;
+  const { source_code, language_id, language, problem_id, contest_id, class_id, lab_id } = req.body;
   const user_id = req.user._id;
 
   if (!source_code || language_id == null || !problem_id) {
@@ -230,6 +230,8 @@ export const submitCode = catchAsyncError(async (req, res, next) => {
     user_id,
     problem_id,
     contest_id: contest_id || null,
+    class_id: class_id || null,
+    lab_id: lab_id || null,
     source_code,
     language_id: Number(language_id),
     language: language || "",
@@ -272,11 +274,13 @@ export const submitCode = catchAsyncError(async (req, res, next) => {
  * Get submissions for a user (and optional problem/contest) for leaderboard/history.
  */
 export const getSubmissions = catchAsyncError(async (req, res, next) => {
-  const { problem_id, contest_id } = req.query;
+  const { problem_id, contest_id, class_id, lab_id } = req.query;
   const user_id = req.user._id;
   const filter = { user_id };
   if (problem_id) filter.problem_id = problem_id;
   if (contest_id) filter.contest_id = contest_id;
+  if (class_id) filter.class_id = class_id;
+  if (lab_id) filter.lab_id = lab_id;
 
   const submissions = await Submission.find(filter)
     .sort({ submitted_at: -1 })

@@ -16,8 +16,9 @@ export const registerForContest = catchAsyncError(async (req, res, next) => {
   const contest = await Contest.findById(req.params.id);
   if (!contest) return next(new ErrorHandler("Contest not found.", 404));
 
-  if (new Date(contest.start_time) < new Date()) {
-    return next(new ErrorHandler("Cannot register for a contest that has already started.", 400));
+  const registrationLimit = new Date(new Date(contest.start_time).getTime() + 15 * 60 * 1000);
+  if (new Date() > registrationLimit) {
+    return next(new ErrorHandler("Registration closed. You can only register up to 15 minutes after the contest starts.", 400));
   }
   await Contest.findByIdAndUpdate(req.params.id, {
     $addToSet: { participants: req.user._id },
@@ -26,24 +27,142 @@ export const registerForContest = catchAsyncError(async (req, res, next) => {
 });
 
 export const createContest = catchAsyncError(async (req, res, next) => {
-  const { name, slug, start_time, end_time, is_active } = req.body;
+  const { 
+    name, 
+    slug, 
+    start_time, 
+    end_time, 
+    is_active,
+    organizer,
+    markForAttendance,
+    moderators,
+    participantGroup,
+    notifyStart,
+    notifyResults,
+    bannerImageURL,
+    description,
+    isPublic
+  } = req.body;
+
   if (!name || !start_time || !end_time) {
     return next(new ErrorHandler("name, start_time and end_time are required.", 400));
   }
+
+  // Security Check: Ensure user is authenticated to extract created_by
+  if (!req.user || !req.user._id) {
+    return next(new ErrorHandler("Unauthorized. User ID missing from request.", 401));
+  }
+
   const finalSlug =
     slug ||
     name
       .toLowerCase()
       .replace(/\s+/g, "-")
       .replace(/[^a-z0-9-]/g, "");
+
+  // Format and secure the moderators array
+  let validModeratorIds = [];
+  if (Array.isArray(moderators)) {
+    validModeratorIds = [...moderators];
+  }
+  
+  // Ensure the creator is always included as a moderator
+  const stringifiedMods = validModeratorIds.map(id => id.toString());
+  if (!stringifiedMods.includes(req.user._id.toString())) {
+    validModeratorIds.push(req.user._id);
+  }
+
   const contest = await Contest.create({
     name,
     slug: finalSlug,
     start_time: new Date(start_time),
     end_time: new Date(end_time),
     is_active: is_active !== false,
+    organizer,
+    markForAttendance,
+    moderators: validModeratorIds,
+    participantGroup,
+    notifyStart,
+    notifyResults,
+    bannerImageURL,
+    description,
+    isPublic: isPublic !== false,
+    created_by: req.user._id, // Injected via auth middleware
   });
+
   return res.status(201).json({ success: true, contest });
+});
+
+export const updateContest = catchAsyncError(async (req, res, next) => {
+  const { id } = req.params;
+  const contest = await Contest.findById(id);
+  if (!contest) return next(new ErrorHandler("Contest not found.", 404));
+
+  const isOwner = contest.created_by?.toString() === req.user._id.toString();
+  const isModerator = contest.moderators.some(m => m.toString() === req.user._id.toString());
+  if (!isOwner && !isModerator) {
+    return next(new ErrorHandler("Not authorized to update this contest.", 403));
+  }
+
+  const {
+    name,
+    slug,
+    start_time,
+    end_time,
+    is_active,
+    organizer,
+    markForAttendance,
+    moderators,
+    participantGroup,
+    notifyStart,
+    notifyResults,
+    bannerImageURL,
+    description,
+    isPublic,
+  } = req.body;
+
+  if (name) contest.name = name;
+  if (slug) contest.slug = slug;
+  if (start_time) contest.start_time = new Date(start_time);
+  if (end_time) contest.end_time = new Date(end_time);
+  if (is_active !== undefined) contest.is_active = is_active;
+  if (organizer !== undefined) contest.organizer = organizer;
+  if (markForAttendance !== undefined) contest.markForAttendance = markForAttendance;
+  if (participantGroup !== undefined) contest.participantGroup = participantGroup;
+  if (notifyStart !== undefined) contest.notifyStart = notifyStart;
+  if (notifyResults !== undefined) contest.notifyResults = notifyResults;
+  if (bannerImageURL !== undefined) contest.bannerImageURL = bannerImageURL;
+  if (description !== undefined) contest.description = description;
+  if (isPublic !== undefined) contest.isPublic = isPublic;
+
+  let validModeratorIds = [];
+  if (Array.isArray(moderators)) {
+    validModeratorIds = [...moderators];
+  }
+  const stringifiedMods = validModeratorIds.map(id => id.toString());
+  if (!stringifiedMods.includes(req.user._id.toString())) {
+    validModeratorIds.push(req.user._id);
+  }
+  if (moderators !== undefined) contest.moderators = validModeratorIds;
+
+  await contest.save();
+
+  return res.status(200).json({ success: true, contest });
+});
+
+export const deleteContest = catchAsyncError(async (req, res, next) => {
+  const { id } = req.params;
+  const contest = await Contest.findById(id);
+  if (!contest) return next(new ErrorHandler("Contest not found.", 404));
+
+  const isOwner = contest.created_by?.toString() === req.user._id.toString();
+  if (!isOwner) {
+    return next(new ErrorHandler("Only the owner can delete this contest.", 403));
+  }
+
+  await Contest.findByIdAndDelete(id);
+
+  return res.status(200).json({ success: true, message: "Contest deleted successfully!" });
 });
 
 export const getContestById = catchAsyncError(async (req, res, next) => {
@@ -54,6 +173,43 @@ export const getContestById = catchAsyncError(async (req, res, next) => {
     .select("title slug difficulty category time_limit memory_limit description order_index")
     .lean();
   return res.status(200).json({ success: true, contest: { ...contest, problems } });
+});
+
+export const getContestBySlug = catchAsyncError(async (req, res, next) => {
+  const contest = await Contest.findOne({ slug: req.params.slug }).lean();
+  if (!contest) return next(new ErrorHandler("Contest not found.", 404));
+  const problems = await Problem.find({ contest_id: contest._id })
+    .sort({ order_index: 1 })
+    .select("title slug difficulty category time_limit memory_limit description order_index")
+    .lean();
+  return res.status(200).json({ success: true, contest: { ...contest, problems } });
+});
+
+export const addProblemsToContest = catchAsyncError(async (req, res, next) => {
+  const { id } = req.params;
+  const { problemIds } = req.body;
+
+  const contest = await Contest.findById(id);
+  if (!contest) return next(new ErrorHandler("Contest not found.", 404));
+
+  const isOwner = contest.created_by?.toString() === req.user._id.toString();
+  const isModerator = contest.moderators.some(m => m.toString() === req.user._id.toString());
+  if (!isOwner && !isModerator) {
+    return next(new ErrorHandler("Not authorized to update this contest.", 403));
+  }
+
+  if (Array.isArray(problemIds)) {
+    await Contest.findByIdAndUpdate(id, {
+      $addToSet: { problems: { $each: problemIds } },
+    });
+  }
+
+  const updatedContest = await Contest.findById(id).lean();
+  const problems = await Problem.find({ contest_id: updatedContest._id })
+    .sort({ order_index: 1 })
+    .lean();
+
+  return res.status(200).json({ success: true, contest: { ...updatedContest, problems } });
 });
 
 export const getActiveContest = catchAsyncError(async (req, res, next) => {
@@ -74,6 +230,26 @@ export const getActiveContest = catchAsyncError(async (req, res, next) => {
     .limit(3)
     .lean();
   return res.status(200).json({ success: true, contest: { ...contest, problems } });
+});
+
+export const getMyContests = catchAsyncError(async (req, res, next) => {
+  const userId = req.user._id;
+  
+  const contests = await Contest.find({
+    $or: [
+      { created_by: userId },
+      { moderators: userId },
+    ],
+  })
+  .sort({ start_time: -1 })
+  .lean();
+
+  const contestsWithRole = contests.map((contest) => ({
+    ...contest,
+    isOwner: contest.created_by?.toString() === userId.toString(),
+  }));
+
+  return res.status(200).json({ success: true, contests: contestsWithRole });
 });
 
 export const getLeaderboard = catchAsyncError(async (req, res, next) => {

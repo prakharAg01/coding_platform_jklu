@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { toast } from 'react-toastify';
 import { calcDuration, generateSlug } from '../utils/timeHelpers';
-import { createContest } from '../api/contestApi';
+import { createContest, updateContest, deleteContest, fetchStudentRoster } from '../api/contestApi';
 
 const TABS = ['Landing Page', 'Problems', 'Moderators', 'Participants'];
 const GROUPS = ['First year', 'Second Year', 'Coding Club', 'Public'];
@@ -31,6 +31,10 @@ const DEFAULT_FORM = {
     participantGroup: '',
     notifyStart: false,
     notifyResults: false,
+    bannerImageURL: '',
+    description: '',
+    isPublic: true,
+    isDraft: false,
 };
 
 export { TABS, GROUPS };
@@ -72,15 +76,29 @@ export function useContestForm(currentUser) {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [errors, setErrors] = useState({});
     const [savedSlug, setSavedSlug] = useState(null);
+    const [savedContestId, setSavedContestId] = useState(null);
 
     const [showDeleteModal, setShowDeleteModal] = useState(false);
+    const [isLoadingParticipants, setIsLoadingParticipants] = useState(false);
 
     useEffect(() => {
-        if (form.participantGroup && MOCK_PARTICIPANTS[form.participantGroup]) {
-            setParticipantsList(MOCK_PARTICIPANTS[form.participantGroup] || []);
-        } else {
-            setParticipantsList([]);
-        }
+        const fetchParticipants = async () => {
+            if (!form.participantGroup || form.participantGroup === 'Public') {
+                setParticipantsList([]);
+                return;
+            }
+            setIsLoadingParticipants(true);
+            try {
+                const students = await fetchStudentRoster(form.participantGroup);
+                setParticipantsList(students || []);
+            } catch (err) {
+                console.error('Failed to fetch participants:', err);
+                setParticipantsList([]);
+            } finally {
+                setIsLoadingParticipants(false);
+            }
+        };
+        fetchParticipants();
     }, [form.participantGroup]);
 
     const duration = calcDuration(form.startDate, form.startTime, form.endDate, form.endTime);
@@ -112,13 +130,22 @@ export function useContestForm(currentUser) {
                 slug,
                 start_time,
                 end_time,
-                is_active: true,
-                // Include other relevant form fields if needed by backend later
+                is_active: !form.isDraft,
+                organizer: form.organizer,
+                markForAttendance: form.markForAttendance,
+                moderators: moderators.filter(m => !m.isCurrentUser).map(m => m.email),
+                participantGroup: form.participantGroup,
+                notifyStart: form.notifyStart,
+                notifyResults: form.notifyResults,
+                bannerImageURL: form.bannerImageURL,
+                description: form.description,
+                isPublic: form.isPublic,
             };
 
-            await createContest(contestData);
+            const response = await createContest(contestData);
 
             setSavedSlug(slug);
+            setSavedContestId(response.contest._id);
             setContestCreated(true);
             toast.success('Contest created successfully!', {
                 position: 'bottom-right',
@@ -135,22 +162,37 @@ export function useContestForm(currentUser) {
         } finally {
             setIsSubmitting(false);
         }
-    }, [form]);
+    }, [form, moderators]);
 
     const handleDeleteContest = useCallback(() => {
         setShowDeleteModal(true);
     }, []);
 
-    const confirmDeleteContest = useCallback(() => {
-        setContestCreated(false);
-        setSavedSlug(null);
-        setShowDeleteModal(false);
-        toast.info('Contest deleted.', {
-            position: 'bottom-right',
-            autoClose: 2000,
-            theme: 'dark',
-        });
-    }, []);
+    const confirmDeleteContest = useCallback(async () => {
+        if (!savedContestId) return;
+        setIsSubmitting(true);
+        try {
+            await deleteContest(savedContestId);
+            setContestCreated(false);
+            setSavedSlug(null);
+            setSavedContestId(null);
+            setShowDeleteModal(false);
+            toast.info('Contest deleted.', {
+                position: 'bottom-right',
+                autoClose: 2000,
+                theme: 'dark',
+            });
+        } catch (err) {
+            console.error('Delete contest error:', err);
+            toast.error(err.response?.data?.message || 'Failed to delete contest. Please try again.', {
+                position: 'bottom-right',
+                autoClose: 3000,
+                theme: 'dark',
+            });
+        } finally {
+            setIsSubmitting(false);
+        }
+    }, [savedContestId]);
 
     const cancelDeleteContest = useCallback(() => {
         setShowDeleteModal(false);
@@ -165,13 +207,37 @@ export function useContestForm(currentUser) {
 
         setIsSubmitting(true);
         try {
+            const slug = generateSlug(form.name);
+            const start_time = new Date(`${form.startDate}T${form.startTime}`).toISOString();
+            const end_time = new Date(`${form.endDate}T${form.endTime}`).toISOString();
+
+            const contestData = {
+                name: form.name,
+                slug,
+                start_time,
+                end_time,
+                is_active: !form.isDraft,
+                organizer: form.organizer,
+                markForAttendance: form.markForAttendance,
+                moderators: moderators.filter(m => !m.isCurrentUser).map(m => m.email),
+                participantGroup: form.participantGroup,
+                notifyStart: form.notifyStart,
+                notifyResults: form.notifyResults,
+                bannerImageURL: form.bannerImageURL,
+                description: form.description,
+                isPublic: form.isPublic,
+            };
+
+            await updateContest(savedContestId, contestData);
+
             toast.success('Contest updated successfully!', {
                 position: 'bottom-right',
                 autoClose: 3000,
                 theme: 'dark',
             });
         } catch (err) {
-            toast.error('Failed to update contest. Please try again.', {
+            console.error('Update contest error:', err);
+            toast.error(err.response?.data?.message || 'Failed to update contest. Please try again.', {
                 position: 'bottom-right',
                 autoClose: 3000,
                 theme: 'dark',
@@ -179,7 +245,7 @@ export function useContestForm(currentUser) {
         } finally {
             setIsSubmitting(false);
         }
-    }, [form]);
+    }, [form, moderators, savedContestId]);
 
     const handleAddProblem = useCallback((problem) => {
         const nextId = String.fromCharCode(65 + problems.length);
@@ -204,6 +270,9 @@ export function useContestForm(currentUser) {
         activeTab,
         contestCreated,
         savedSlug,
+        savedContestId,
+        setSavedSlug,
+        setSavedContestId,
         problems,
         moderators,
         participantsList,
@@ -212,6 +281,8 @@ export function useContestForm(currentUser) {
         isSubmitting,
         errors,
         showDeleteModal,
+        isLoadingParticipants,
+        setForm,
         setProblems,
         setModerators,
         setParticipantsList,

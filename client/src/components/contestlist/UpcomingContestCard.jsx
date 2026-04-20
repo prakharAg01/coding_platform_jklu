@@ -12,6 +12,8 @@ export default function UpcomingContestCard({
     (p) => p === currentUser?._id || p._id === currentUser?._id,
   );
   const isRegistering = registeringId === contest._id;
+  const registrationDeadline = new Date(new Date(contest.start_time).getTime() + 15 * 60 * 1000);
+  const isRegistrationClosed = new Date() > registrationDeadline;
 
   // Get appropriate icon
   const IconComponent = contest.problems?.length > 0 ? Blocks : Calendar;
@@ -24,9 +26,9 @@ export default function UpcomingContestCard({
             <IconComponent className="w-4 h-4" />
           </div>
           <div className="flex items-center h-7">
-            <span className="text-slate-500 text-xs font-bold uppercase">
+            <span className="text-zinc-300 text-xs font-bold uppercase">
               {isRegistered ? (
-                <span className="flex items-center gap-1 text-slate-500">
+                <span className="flex items-center gap-1 text-zinc-300">
                   Starts in {formatTime(false)}
                 </span>
               ) : isExpired ? (
@@ -37,32 +39,32 @@ export default function UpcomingContestCard({
             </span>
           </div>
         </div>
-        <h4 className="text-xl font-bold text-white mb-2">{contest.name}</h4>
+        <h4 className="text-xl font-bold text-zinc-200 mb-2">{contest.name}</h4>
         <div className="flex items-center gap-2 mb-6">
-          <div className="flex items-center gap-1 text-xs bg-white/5 text-slate-300 px-2 py-1 rounded font-bold uppercase">
-            <Users className="w-[1rem] h-[1rem] text-accent-yellow "/>{contest.participants?.length || 0} Registered
+          <div className="flex items-center gap-1 text-xs bg-white/5 text-zinc-300 px-2 py-1 rounded font-bold uppercase">
+            <Users className="w-[1rem] h-[1rem] text-accent-yellow " />{contest.participants?.length || 0} Registered
           </div>
-          <div className="flex items-center gap-1 text-xs bg-white/5 text-slate-300 px-2 py-1 rounded font-bold uppercase">
-            <Blocks className="w-[1rem] h-[1rem] text-accent-yellow "/>{contest.problems?.length || 0} Problems
+          <div className="flex items-center gap-1 text-xs bg-white/5 text-zinc-300 px-2 py-1 rounded font-bold uppercase">
+            <Blocks className="w-[1rem] h-[1rem] text-accent-yellow " />{contest.problems?.length || 0} Problems
           </div>
         </div>
       </div>
       <div className="flex items-center justify-between pt-4 border-t border-white/5">
         {isRegistered ? (
-          <span className="flex items-center gap-1.5 text-green-400 text-xs font-black uppercase tracking-wider">
+          <span className="flex items-center gap-1.5 text-emerald-400 text-xs font-black uppercase tracking-wider">
             <CheckCircle2 className="w-4 h-4" /> Registered
           </span>
         ) : (
           <button
             onClick={() => onRegister(contest._id)}
-            disabled={isRegistering || isExpired}
+            disabled={isRegistering || isRegistrationClosed}
             className="px-4 py-2 bg-white/5 hover:bg-brand-yellow hover:text-black text-white text-xs font-bold rounded-lg border border-white/10 transition-colors uppercase"
           >
             {isRegistering ? (
-              <>
+              <span className="flex items-center gap-1">
                 <Loader2 className="w-4 h-4 animate-spin" /> Registering...
-              </>
-            ) : isExpired ? (
+              </span>
+            ) : isRegistrationClosed ? (
               "Registration Closed"
             ) : (
               "Register Now"

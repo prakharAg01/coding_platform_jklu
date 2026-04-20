@@ -12,6 +12,8 @@ export default function UpcomingContestHero({
     (p) => p === currentUser?._id || p._id === currentUser?._id
   );
   const isRegistering = registeringId === contest._id;
+  const registrationDeadline = new Date(new Date(contest.start_time).getTime() + 15 * 60 * 1000);
+  const isRegistrationClosed = new Date() > registrationDeadline;
 
   return (
     <div className="bg-card-dark border border-white/5 rounded-xl p-[1.25rem] lg:p-[1.75rem] relative overflow-hidden group hover:border-white/10 transition-colors min-h-[8rem] flex flex-col justify-center">
@@ -66,7 +68,7 @@ export default function UpcomingContestHero({
           ) : (
             <button
               onClick={() => onRegister(contest._id)}
-              disabled={isRegistering || isExpired}
+              disabled={isRegistering || isRegistrationClosed}
               className="bg-accent-yellow hover:scale-105 active:scale-95 transition-all text-black px-[1.5rem] py-[0.75rem] rounded-lg font-black text-[0.9rem] flex items-center justify-center gap-[0.5rem] shadow-[0_0_1rem_rgba(236,189,84,0.1)] disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isRegistering ? (
@@ -74,7 +76,7 @@ export default function UpcomingContestHero({
                   <Loader2 className="w-[1.1rem] h-[1.1rem] animate-spin" />
                   REGISTERING...
                 </>
-              ) : isExpired ? (
+              ) : isRegistrationClosed ? (
                 "REGISTRATION CLOSED"
               ) : (
                 <>

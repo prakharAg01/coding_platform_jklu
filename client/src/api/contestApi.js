@@ -19,3 +19,23 @@ export const createContest = async (contestData) => {
     const { data } = await api.post('/contests', contestData);
     return data;
 };
+
+export const updateContest = async (id, contestData) => {
+    const { data } = await api.put(`/contests/${id}`, contestData);
+    return data;
+};
+
+export const deleteContest = async (id) => {
+    const { data } = await api.delete(`/contests/${id}`);
+    return data;
+};
+
+export const fetchContestBySlug = async (slug) => {
+    const { data } = await api.get(`/contests/slug/${slug}`);
+    return data.contest;
+};
+
+export const addProblemsToContest = async (id, problemIds) => {
+    const { data } = await api.post(`/contests/${id}/problems`, { problemIds });
+    return data.contest;
+};

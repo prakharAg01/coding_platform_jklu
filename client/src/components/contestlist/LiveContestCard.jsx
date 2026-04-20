@@ -2,11 +2,14 @@ import { Link } from "react-router-dom";
 import { Users, Medal, ChevronRight, Radio } from "lucide-react";
 import { useCountdown } from "../../hooks/useCountdown";
 
-export default function LiveContestCard({ contest, currentUser }) {
+export default function LiveContestCard({ contest, currentUser, onRegister, registeringId }) {
   const { formatTime } = useCountdown(contest.end_time);
   const isRegistered = contest.participants?.some(
     (p) => p === currentUser?._id || p._id === currentUser?._id,
   );
+  const isRegistering = registeringId === contest._id;
+  const registrationDeadline = new Date(new Date(contest.start_time).getTime() + 15 * 60 * 1000);
+  const isRegistrationClosed = new Date() > registrationDeadline;
 
   return (
     <div className="bg-card-dark border border-accent-yellow/25 rounded-2xl p-[2rem] lg:p-[2.5rem] relative overflow-hidden group hover:bordolors min-h-[10rem] flex flex-col justify-center">
@@ -54,6 +57,15 @@ export default function LiveContestCard({ contest, currentUser }) {
               ENTER CONTEST
               <ChevronRight className="w-[1.5rem] h-[1.5rem]" />
             </Link>
+          ) : !isRegistrationClosed ? (
+            <button
+              onClick={() => onRegister(contest._id)}
+              disabled={isRegistering}
+              className="bg-accent-yellow hover:scale-105 transition-transform text-black px-[2rem] py-[1rem] rounded-xl font-black text-[1rem] flex items-center gap-[0.75rem] shadow-[0_0_1.875rem_rgba(236,189,84,0.2)] disabled:opacity-50"
+            >
+              {isRegistering ? "REGISTERING..." : "REGISTER NOW"}
+              <ChevronRight className="w-[1.5rem] h-[1.5rem]" />
+            </button>
           ) : (
             <div className="text-slate-400 text-[1rem]">
               Registration closed

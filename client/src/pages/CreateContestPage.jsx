@@ -1,6 +1,6 @@
-import { useContext, useEffect } from "react";
+import { useContext, useEffect, useState } from "react";
 import ReactDOM from "react-dom";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { ChevronLeft, Trash2, Loader2 } from "lucide-react";
 import clsx from "clsx";
 import MainLayout from "../layout/MainLayout";
@@ -15,9 +15,13 @@ import ProblemsTab from "../components/CreateContest/Tabs/ProblemsTab";
 import ModeratorsTab from "../components/CreateContest/Tabs/ModeratorsTab";
 import ParticipantsTab from "../components/CreateContest/Tabs/ParticipantsTab";
 import { useContestForm, TABS } from "../hooks/useContestForm";
+import { fetchContestBySlug, fetchMyContests } from "../api/contestApi";
 
 export default function CreateContestPage() {
   const { user: currentUser } = useContext(Context);
+  const [searchParams] = useSearchParams();
+  const editId = searchParams.get("edit");
+  const [isLoadingEdit, setIsLoadingEdit] = useState(false);
   
   const {
     form,
@@ -25,6 +29,9 @@ export default function CreateContestPage() {
     activeTab,
     contestCreated,
     savedSlug,
+    setSavedSlug,
+    savedContestId,
+    setSavedContestId,
     problems,
     moderators,
     participantsList,
@@ -33,11 +40,14 @@ export default function CreateContestPage() {
     isSubmitting,
     errors,
     showDeleteModal,
+    isLoadingParticipants,
+    setForm,
     setProblems,
     setModerators,
     setParticipantsList,
     setPanelOpen,
     setActiveTab,
+    setContestCreated,
     handlers,
   } = useContestForm(currentUser);
 
@@ -71,6 +81,48 @@ export default function CreateContestPage() {
     window.addEventListener("keydown", handleEsc);
     return () => window.removeEventListener("keydown", handleEsc);
   }, [showDeleteModal, cancelDeleteContest]);
+
+  useEffect(() => {
+    if (!editId) return;
+    const loadContestForEdit = async () => {
+      setIsLoadingEdit(true);
+      try {
+        const contests = await fetchMyContests();
+        const contest = contests.find(c => c._id === editId || c.slug === editId);
+        if (contest) {
+          const startDate = new Date(contest.start_time);
+          const endDate = new Date(contest.end_time);
+          setForm({
+            name: contest.name || '',
+            startDate: startDate.toISOString().split('T')[0] || '',
+            startTime: startDate.toTimeString().slice(0, 5) || '',
+            endDate: endDate.toISOString().split('T')[0] || '',
+            endTime: endDate.toTimeString().slice(0, 5) || '',
+            organizer: contest.organizer || '',
+            participantGroup: contest.participantGroup || '',
+            notifyStart: contest.notifyStart || false,
+            notifyResults: contest.notifyResults || false,
+            bannerImageURL: contest.bannerImageURL || '',
+            description: contest.description || '',
+            isPublic: contest.isPublic !== false,
+            isDraft: !contest.is_active,
+          });
+          setSavedSlug(contest.slug);
+          setSavedContestId(contest._id);
+          setContestCreated(true);
+        } else {
+          console.log('Contest not found in my contests');
+        }
+      } catch (err) {
+        console.error('Failed to load contest for edit:', err);
+      } finally {
+        setIsLoadingEdit(false);
+      }
+    };
+    if (editId) {
+      loadContestForEdit();
+    }
+  }, [editId]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -146,7 +198,7 @@ export default function CreateContestPage() {
               <ChevronLeft size={16} /> Back to Dashboard
             </Link>
             <h1 className="text-3xl font-bold text-white tracking-tight">
-              {contestCreated ? "Edit Contest" : "Create New Contest"}
+              {isLoadingEdit ? "Loading..." : editId || contestCreated ? "Edit Contest" : "Create New Contest"}
             </h1>
           </div>
         </div>
@@ -266,6 +318,22 @@ export default function CreateContestPage() {
               </div>
             </FieldWrapper>
 
+            <label className="flex items-center gap-3 cursor-pointer select-none group">
+              <div className="relative">
+                <input
+                  type="checkbox"
+                  className="sr-only peer"
+                  checked={!form.isDraft}
+                  onChange={(e) => handleFieldChange("isDraft", !e.target.checked)}
+                />
+                <div className="w-9 h-5 bg-white/10 border border-white/20 rounded-full peer-checked:bg-brand-yellow/10 peer-checked:border-brand-yellow/30" />
+                <div className="absolute top-[3px] left-[3px] w-[14px] h-[14px] bg-white/50 rounded-full peer-checked:translate-x-4 peer-checked:bg-brand-yellow" />
+              </div>
+              <span className="text-sm text-white">
+                Publish immediately (uncheck to save as draft)
+              </span>
+            </label>
+
             <div className="flex justify-end pt-2 gap-3 items-center">
               {isSubmitting && (
                 <span className="text-muted text-xs flex items-center gap-2">
@@ -281,7 +349,7 @@ export default function CreateContestPage() {
                   "px-6 py-2.5 rounded-xl text-[13px] font-semibold flex items-center gap-2 transition-all",
                   contestCreated
                     ? "bg-brand-yellow text-bg-dark hover:bg-yellow-300"
-                    : "bg-white text-bg-dark hover:bg-yellow-300 disabled:opacity-50",
+                    : "bg-zinc-200 text-bg-dark hover:bg-yellow-300 disabled:opacity-50",
                 )}
               >
                 {contestCreated ? "Save Changes" : "Create Contest"}
@@ -348,7 +416,16 @@ export default function CreateContestPage() {
             </div>
 
             <div className="p-6 md:p-8 bg-card-dark">
-              {activeTab === "Landing Page" && <LandingPageTab />}
+              {activeTab === "Landing Page" && (
+                <LandingPageTab
+                  bannerImageURL={form.bannerImageURL}
+                  description={form.description}
+                  isPublic={form.isPublic}
+                  onChangeBannerImageURL={(val) => handleFieldChange("bannerImageURL", val)}
+                  onChangeDescription={(val) => handleFieldChange("description", val)}
+                  onChangeIsPublic={(val) => handleFieldChange("isPublic", val)}
+                />
+              )}
               {activeTab === "Problems" && (
                 <ProblemsTab
                   problems={problems}
@@ -375,6 +452,7 @@ export default function CreateContestPage() {
                   onChangeNotifyStart={(val) => handleFieldChange("notifyStart", val)}
                   notifyResults={form.notifyResults}
                   onChangeNotifyResults={(val) => handleFieldChange("notifyResults", val)}
+                  isLoadingParticipants={isLoadingParticipants}
                 />
               )}
             </div>

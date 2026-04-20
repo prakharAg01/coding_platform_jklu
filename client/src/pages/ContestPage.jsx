@@ -22,9 +22,14 @@ export default function ContestPage() {
   useEffect(() => {
     const fetchContest = async () => {
       try {
-        const { data } = await api.get(`/contests/${id}`);
-        setContest(data.contest);
-      } catch {
+        let response;
+        const isObjectId = id && /^[0-9a-fA-F]{24}$/.test(id);
+        const url = isObjectId ? `/contests/${id}` : `/contests/slug/${id}`;
+        response = await api.get(url);
+        const contestData = response.data.contest;
+        setContest({...contestData});
+      } catch (err) {
+        console.error('Error fetching contest:', err.response?.data || err.message);
         setContest(null);
       } finally {
         setLoading(false);
@@ -36,28 +41,46 @@ export default function ContestPage() {
   useEffect(() => {
     const fetchLeaderboard = async () => {
       try {
-        const { data } = await api.get(`/contests/${id}/leaderboard`);
+        let endpoint;
+        const isObjectId = /^[0-9a-fA-F]{24}$/.test(id);
+        if (isObjectId) {
+          endpoint = `/contests/${id}/leaderboard`;
+        } else {
+          const { data } = await api.get(`/contests/slug/${id}`);
+          endpoint = `/contests/${data.contest._id}/leaderboard`;
+        }
+        const { data } = await api.get(endpoint);
         setLeaderboard(data.leaderboard || []);
       } catch {
         setLeaderboard([]);
       }
     };
-    if (id) fetchLeaderboard();
-  }, [id]);
+    if (id && contest) fetchLeaderboard();
+  }, [id, contest]);
 
   useEffect(() => {
     const fetchSubmissions = async () => {
       try {
-        const { data } = await api.get(`/contests/${id}/submissions`);
+        let endpoint;
+        const isObjectId = /^[0-9a-fA-F]{24}$/.test(id);
+        if (isObjectId) {
+          endpoint = `/contests/${id}/submissions`;
+        } else {
+          const { data } = await api.get(`/contests/slug/${id}`);
+          endpoint = `/contests/${data.contest._id}/submissions`;
+        }
+        const { data } = await api.get(endpoint);
         setSubmissions(data.submissions || []);
       } catch {
         setSubmissions([]);
       }
     };
-    if (id && tab === "submissions") fetchSubmissions();
-  }, [id, tab]);
+    if (id && contest && tab === "submissions") fetchSubmissions();
+  }, [id, contest, tab]);
 
-  if (!isAuthenticated) return <Navigate to="/auth" />;
+  if (!isAuthenticated) {
+    return <Navigate to="/auth" />;
+  }
   if (loading && !contest) {
     return (
       <MainLayout onBack={() => navigate("/contests")} activeNav="Contests">

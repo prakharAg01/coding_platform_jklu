@@ -1,12 +1,29 @@
-import { ChevronDown, Plus, X } from 'lucide-react';
+import { useState } from 'react';
+import { ChevronDown, Plus, X, Loader2 } from 'lucide-react';
 import clsx from 'clsx';
 import FieldWrapper, { inputCls } from '../FieldWrapper';
 import { GROUPS } from '../../../hooks/useContestForm';
 
 const ParticipantsTab = ({ 
     group, onChangeGroup, participants, setParticipants, 
-    notifyStart, onChangeNotifyStart, notifyResults, onChangeNotifyResults 
+    notifyStart, onChangeNotifyStart, notifyResults, onChangeNotifyResults,
+    onAddParticipant, isLoadingParticipants 
 }) => {
+    const [showAddModal, setShowAddModal] = useState(false);
+    const [newPartName, setNewPartName] = useState('');
+    const [newPartEmail, setNewPartEmail] = useState('');
+
+    const handleAddParticipant = () => {
+        if (!newPartEmail.trim()) return;
+        setParticipants([...participants, {
+            id: Date.now(),
+            name: newPartName.trim() || newPartEmail.trim(),
+            email: newPartEmail.trim(),
+        }]);
+        setNewPartEmail('');
+        setNewPartName('');
+        setShowAddModal(false);
+    };
     return (
         <div className="flex flex-col gap-5">
             <FieldWrapper label="Select specific participant group">
@@ -66,11 +83,55 @@ const ParticipantsTab = ({
                 <div className="flex flex-col gap-4">
                     <div className="flex items-center justify-between mt-2">
                         <p className="text-sm font-medium text-white">Participant List ({participants.length})</p>
-                        <button className="text-[13px] text-brand-yellow hover:opacity-80 font-medium flex items-center gap-1">
+                        <button
+                            onClick={() => setShowAddModal(true)}
+                            className="text-[13px] text-brand-yellow hover:opacity-80 font-medium flex items-center gap-1"
+                        >
                             <Plus className="w-3.5 h-3.5" /> Add participant
                         </button>
                     </div>
 
+                    {showAddModal && (
+                        <div className="flex flex-col gap-3 p-4 border border-white/10 rounded-xl bg-bg-light">
+                            <input
+                                type="text"
+                                value={newPartName}
+                                onChange={(e) => setNewPartName(e.target.value)}
+                                placeholder="Name (optional)"
+                                className="w-full px-3 py-2 bg-card-dark border border-white/10 rounded-lg text-sm text-white placeholder:text-muted"
+                            />
+                            <input
+                                type="email"
+                                value={newPartEmail}
+                                onChange={(e) => setNewPartEmail(e.target.value)}
+                                placeholder="Email (required)"
+                                className="w-full px-3 py-2 bg-card-dark border border-white/10 rounded-lg text-sm text-white placeholder:text-muted"
+                            />
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={handleAddParticipant}
+                                    disabled={!newPartEmail.trim()}
+                                    className="px-3 py-1.5 text-xs font-medium bg-brand-yellow text-bg-dark rounded-lg hover:bg-yellow-300 disabled:opacity-50"
+                                >
+                                    Add
+                                </button>
+                                <button
+                                    onClick={() => { setShowAddModal(false); setNewPartEmail(''); setNewPartName(''); }}
+                                    className="px-3 py-1.5 text-xs font-medium border border-white/20 text-white rounded-lg hover:bg-white/5"
+                                >
+                                    Cancel
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {isLoadingParticipants && (
+                        <div className="flex items-center justify-center py-8">
+                            <Loader2 className="w-5 h-5 animate-spin text-muted" />
+                        </div>
+                    )}
+
+                    {!isLoadingParticipants && (
                     <div className="border border-white/10 rounded-xl overflow-hidden">
                         <div className="grid grid-cols-12 gap-3 px-4 py-2.5 bg-bg-light border-b border-white/10 text-[11px] font-semibold tracking-wider uppercase text-muted">
                             <div className="col-span-4">Name</div>
@@ -99,6 +160,7 @@ const ParticipantsTab = ({
                             </div>
                         )}
                     </div>
+                    )}
                 </div>
             )}
         </div>

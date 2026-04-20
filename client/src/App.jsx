@@ -18,6 +18,7 @@ import { Context } from "./main";
 import OtpVerification from "./pages/OtpVerification";
 import CreateContestPage from "./pages/CreateContestPage";
 import TADashboard from "./pages/TADashboard";
+import ManageContestPage from "./pages/ManageContestPage";
 import ProfilePage from "./pages/ProfilePage";
 
 const API_BASE = "http://localhost:4000/api/v1";
@@ -62,6 +63,7 @@ const App = () => {
           <Route path="/password/reset/:token" element={<ResetPassword />} />
           <Route path="/contests/archive" element={<ContestArchivePage />} />
           <Route path="/ta-dashboard" element={<TADashboard />} />
+          <Route path="/manage-contest/:id" element={<ManageContestPage />} />
           <Route path="/create-contest" element={<CreateContestPage />} />
         </Routes>
         <ToastContainer theme="colored" />

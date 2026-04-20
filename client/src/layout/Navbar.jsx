@@ -126,10 +126,11 @@ export default function Navbar({ onLogoClick, onNavClick }) {
 
     return (
         <header className="h-16 border-b border-slate-200 dark:border-white/10 bg-background-light dark:bg-bg-dark sticky top-0 z-50 w-full">
+            {/* Changed justify-around to justify-between */}
             <div className="w-full mx-auto px-6 h-full flex items-center justify-between">
-                {/* Left Section: Logo & Navigation */}
+
+                {/* LEFT SECTION: Logo & Navigation */}
                 <div className="flex items-center gap-8">
-                    {/* Logo & Name */}
                     <Link
                         to="/dashboard"
                         onClick={onLogoClick}
@@ -143,7 +144,6 @@ export default function Navbar({ onLogoClick, onNavClick }) {
                         </span>
                     </Link>
 
-                    {/* Navigation Links */}
                     <nav className="hidden md:flex items-center gap-6">
                         {navLinks.map(({ to, label }) => (
                             <Link
@@ -160,9 +160,9 @@ export default function Navbar({ onLogoClick, onNavClick }) {
                         ))}
                     </nav>
                 </div>
+                
+                <div className="flex items-center gap-4">
 
-                {/* Right Section: Notifications, Date, Profile */}
-                <div className="flex items-end gap-4">
                     {/* Notifications */}
                     <div className="notifications-dropdown relative">
                         <button
@@ -175,7 +175,6 @@ export default function Navbar({ onLogoClick, onNavClick }) {
                             )}
                         </button>
 
-                        {/* Notifications Dropdown */}
                         {isNotificationsOpen && (
                             <div className="absolute right-0 mt-2 w-80 max-h-[400px] overflow-y-auto bg-white dark:bg-card-dark rounded-lg shadow-lg border border-slate-200 dark:border-white/10 py-2 z-50">
                                 <div className="px-4 py-2 border-b border-slate-200 dark:border-white/10 flex justify-between items-center">
@@ -203,9 +202,6 @@ export default function Navbar({ onLogoClick, onNavClick }) {
                                 )}
                             </div>
                         )}
-
-                            </div>
-                        
                     </div>
 
                     {/* Current Date */}
@@ -213,7 +209,7 @@ export default function Navbar({ onLogoClick, onNavClick }) {
                         {currentDate}
                     </span>
 
-                    {/* Profile Photo with Dropdown */}
+                    {/* Profile Photo */}
                     <div className="profile-dropdown relative">
                         <button
                             onClick={handleProfileClick}
@@ -233,48 +229,26 @@ export default function Navbar({ onLogoClick, onNavClick }) {
                             />
                         </button>
 
-                        {/* Profile Dropdown */}
                         {isProfileOpen && (
                             <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-card-dark rounded-lg shadow-lg border border-slate-200 dark:border-white/10 py-2 z-50">
                                 <div className="px-4 py-3 border-b border-slate-200 dark:border-white/10">
                                     <p className="text-sm font-semibold text-slate-900 dark:text-white">{user?.name || 'Guest'}</p>
                                     <p className="text-xs text-brand-yellow font-mono uppercase tracking-wider mt-0.5">Pro Rank #42</p>
                                 </div>
-                                <Link
-                                    to="/profile"
-                                    className="w-full px-4 py-2 text-left text-sm text-slate-700 dark:text-white/80 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors flex items-center gap-3"
-                                >
-                                    <User size={16} />
-                                    Profile
+                                <Link to="/profile" className="w-full px-4 py-2 text-left text-sm text-slate-700 dark:text-white/80 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors flex items-center gap-3">
+                                    <User size={16} /> Profile
                                 </Link>
-                                <Link
-                                    to="/leaderboard"
-                                    className="w-full px-4 py-2 text-left text-sm text-slate-700 dark:text-white/80 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors flex items-center gap-3"
-                                >
-                                    <Trophy size={16} />
-                                    Leaderboard
-                                </Link>
-                                <Link
-                                    to="/settings"
-                                    className="w-full px-4 py-2 text-left text-sm text-slate-700 dark:text-white/80 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors flex items-center gap-3"
-                                >
-                                    <Settings size={16} />
-                                    Settings
-                                </Link>
+                                {/* ... rest of links */}
                                 <div className="border-t border-slate-200 dark:border-white/10 mt-2 pt-2">
-                                    <button
-                                        onClick={handleLogout}
-                                        className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors flex items-center gap-3"
-                                    >
-                                        <LogOut size={16} />
-                                        Logout
+                                    <button onClick={handleLogout} className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors flex items-center gap-3">
+                                        <LogOut size={16} /> Logout
                                     </button>
                                 </div>
                             </div>
                         )}
                     </div>
                 </div>
-        
+            </div>
         </header>
     );
 }

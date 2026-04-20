@@ -9,13 +9,17 @@ const userSchema = new mongoose.Schema({
   password: {
     type: String,
     minLength: [8, "Password must have at least 8 characters."],
-    maxLength: [32, "Password cannot have more than 32 characters."],
+    maxLength: [32, "Cannot have more than 32 characters."],
     select: false,
   },
   role: {
     type: String,
     enum: ["Student", "Teacher", "Admin", "TA"],
     default: "Student",
+  },
+  group: {
+    type: String,
+    trim: true,
   },
   accountVerified: { type: Boolean, default: false },
   verificationCode: Number,

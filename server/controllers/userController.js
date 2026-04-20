@@ -4,6 +4,7 @@ import { User } from "../models/userModel.js";
 import { Badge } from "../models/badgeModel.js";
 import { Submission } from "../models/submissionModel.js";
 import { sendEmail } from "../utils/sendEmail.js";
+import { Problem } from "../models/problemModel.js";
 import twilio from "twilio";
 import { sendToken } from "../utils/sendToken.js";
 import crypto from "crypto";
@@ -204,6 +205,45 @@ export const resetPassword = catchAsyncError(async (req, res, next) => {
   sendToken(user, 200, "Reset Password Successfully.", res);
 });
 
+export const getStudentsByGroup = catchAsyncError(async (req, res, next) => {
+  const { group } = req.query;
+  
+  const filter = { role: "Student" };
+  if (group) {
+    filter.group = group;
+  }
+  
+  const students = await User.find(filter).select("name email group").lean();
+  
+  res.status(200).json({
+    success: true,
+    students,
+  });
+});
+
+export const searchUsers = catchAsyncError(async (req, res, next) => {
+  const { role, query } = req.query;
+  
+  const filter = {};
+  if (role) {
+    filter.role = role;
+  }
+  if (query) {
+    filter.$or = [
+      { name: { $regex: query, $options: 'i' } },
+      { email: { $regex: query, $options: 'i' } },
+    ];
+  }
+  
+  const users = await User.find(filter).select("name email role").limit(20).lean();
+  
+  res.status(200).json({
+    success: true,
+    users,
+  });
+});
+
+// Temporary endpoint for testing purposes
 export const upgradeToTeacher = catchAsyncError(async (req, res, next) => {
   const user = req.user;
   user.role = "Teacher";
@@ -215,7 +255,7 @@ export const upgradeToTeacher = catchAsyncError(async (req, res, next) => {
 // GET /api/v1/user/profile
 // Returns all data needed by ProfilePage.jsx
 
-import { Problem } from "../models/problemModel.js";
+
 
 export const getProfile = catchAsyncError(async (req, res, next) => {
   const userId = req.user._id;

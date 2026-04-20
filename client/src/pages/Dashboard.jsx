@@ -155,7 +155,12 @@ export default function Dashboard() {
                 {/* Contest Slide */}
                 <div className="transition-opacity duration-300">
                   {currentContest?.status === "Live" ? (
-                    <LiveContestCard contest={currentContest} currentUser={user} />
+                    <LiveContestCard
+                      contest={currentContest}
+                      currentUser={user}
+                      onRegister={handleRegister}
+                      registeringId={registeringId}
+                    />
                   ) : (
                     <UpcomingContestHero
                       contest={currentContest}

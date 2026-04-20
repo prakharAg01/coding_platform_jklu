@@ -167,6 +167,8 @@ export default function ContestsListPage() {
                 <LiveContestCard
                   contest={currentLiveContest}
                   currentUser={user}
+                  onRegister={handleRegister}
+                  registeringId={registeringId}
                 />
               </div>
 
@@ -238,10 +240,10 @@ export default function ContestsListPage() {
               {upcomingContests.length < 3 && (
                 <div className="bg-card-dark border border-dashed border-white/10 rounded-2xl p-6 flex flex-col justify-between">
                   <div className="flex flex-col items-center justify-center h-full py-8 text-center">
-                    <p className="text-slate-500 text-sm font-medium">
+                    <p className="text-zinc-400 text-sm font-medium">
                       More contests being announced soon
                     </p>
-                    <button className="mt-4 text-xs text-accent-yellow underline font-bold">
+                    <button className="mt-4 text-xs text-accent-yellow-muted underline font-bold">
                       SET NOTIFICATION
                     </button>
                   </div>

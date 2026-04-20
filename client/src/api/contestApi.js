@@ -39,3 +39,8 @@ export const addProblemsToContest = async (id, problemIds) => {
     const { data } = await api.post(`/contests/${id}/problems`, { problemIds });
     return data.contest;
 };
+
+export const createProblem = async (problemData) => {
+    const { data } = await api.post('/problems', problemData);
+    return data.problem;
+};

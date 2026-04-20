@@ -8,6 +8,7 @@ import {
   forgotPassword,
   resetPassword,
   upgradeToTeacher,
+  getStudentsByGroup,
 } from "../controllers/userController.js";
 import { isAuthenticated } from "../middlewares/auth.js";
 
@@ -20,6 +21,7 @@ router.get("/logout", isAuthenticated, logout);
 router.get("/me", isAuthenticated, getUser);
 router.post("/password/forgot", forgotPassword);
 router.put("/password/reset/:token", resetPassword);
+router.get("/students", getStudentsByGroup);
 
 // temporary endpoint
 router.post("/upgrade-to-teacher", isAuthenticated, upgradeToTeacher);

@@ -38,15 +38,18 @@ export default function ManageContestPage() {
         }
       } catch (err) {
         console.error("Failed to fetch contest:", err);
+        if (err.response?.status === 403 || err.response?.status === 404) {
+          navigate("/ta-dashboard", { replace: true });
+        }
       } finally {
         setLoading(false);
       }
     };
     fetchContest();
-  }, [id]);
+  }, [id, navigate]);
 
   const getContestStatus = () => {
-    if (!contest || contest.status === "draft" || !contest.start_time) return "draft";
+    if (!contest || contest.is_active === false || !contest.start_time) return "draft";
     const now = new Date();
     const start = new Date(contest.start_time);
     const end = new Date(contest.end_time);
@@ -83,7 +86,7 @@ export default function ManageContestPage() {
         <div className="min-h-screen flex flex-col items-center justify-center bg-bg-dark text-white">
           <AlertTriangle size={48} className="text-yellow-500 mb-4" />
           <h2 className="text-xl font-semibold mb-2">Contest Not Found</h2>
-          <p className="text-muted mb-4">The contest you're trying to manage doesn't exist.</p>
+          <p className="text-muted mb-4">The contest you&lsquo;re trying to manage doesn&lsquo;t exist.</p>
           <Link to="/ta-dashboard" className="text-brand-yellow hover:underline">
             Back to TA Dashboard
           </Link>

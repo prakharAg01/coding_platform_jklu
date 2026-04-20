@@ -110,6 +110,17 @@ export default function CreateContestPage() {
           setSavedSlug(contest.slug);
           setSavedContestId(contest._id);
           setContestCreated(true);
+          if (contest.problems && contest.problems.length > 0) {
+            setProblems(contest.problems.map((p, i) => ({
+              id: String.fromCharCode(65 + i),
+              name: p.title,
+              score: 100,
+              description: p.description || '',
+              difficulty: p.difficulty || 'Medium',
+              category: p.category || '',
+              testCases: [],
+            })));
+          }
         } else {
           console.log('Contest not found in my contests');
         }

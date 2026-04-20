@@ -302,6 +302,22 @@ export const resetPassword = catchAsyncError(async (req, res, next) => {
   sendToken(user, 200, "Reset Password Successfully.", res);
 });
 
+export const getStudentsByGroup = catchAsyncError(async (req, res, next) => {
+  const { group } = req.query;
+  
+  const filter = { role: "Student" };
+  if (group) {
+    filter.group = group;
+  }
+  
+  const students = await User.find(filter).select("name email group").lean();
+  
+  res.status(200).json({
+    success: true,
+    students,
+  });
+});
+
 // Temporary endpoint for testing purposes
 export const upgradeToTeacher = catchAsyncError(async (req, res, next) => {
   const user = req.user;

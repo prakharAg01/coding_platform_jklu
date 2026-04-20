@@ -1,15 +1,15 @@
 import { useEffect, useState, useContext } from "react";
 import { Link } from "react-router-dom";
-import { LayoutDashboard, User, PlusCircle, Search, Filter, MoreHorizontal } from "lucide-react";
+import { LayoutDashboard, User, PlusCircle, Search, Filter } from "lucide-react";
 import { Context } from "../main";
 import MainLayout from "../layout/MainLayout";
 import { fetchMyContests } from "../api/contestApi";
 
 const STATUS_CONFIG = {
-  live: { label: "Live", color: "bg-green-500/10 text-green-400 border-green-500/30", icon: "🟢" },
-  upcoming: { label: "Upcoming", color: "bg-yellow-500/10 text-yellow-400 border-yellow-500/30", icon: "🟡" },
-  ended: { label: "Ended", color: "bg-red-500/10 text-red-400 border-red-500/30", icon: "🔴" },
-  draft: { label: "Draft", color: "bg-gray-500/10 text-gray-400 border-gray-500/30", icon: "⚪" },
+  live: { label: "Live", color: "bg-green-500/10 text-green-400 border-green-500/30", icon: "" },
+  upcoming: { label: "Upcoming", color: "bg-yellow-500/10 text-yellow-400 border-yellow-500/30", icon: "" },
+  ended: { label: "Ended", color: "bg-red-500/10 text-red-400 border-red-500/30", icon: "" },
+  draft: { label: "Draft", color: "bg-gray-500/10 text-gray-400 border-gray-500/30", icon: "" },
 };
 
 const STATUS_FILTERS = [
@@ -42,11 +42,14 @@ export default function TADashboard() {
   }, []);
 
   const getContestStatus = (contest) => {
+    if (contest.is_active === false) {
+      return "draft";
+    }
     const now = new Date();
     const start = new Date(contest.start_time);
     const end = new Date(contest.end_time);
 
-    if (contest.status === "draft" || !contest.start_time) {
+    if (!contest.start_time) {
       return "draft";
     } else if (now < start) {
       return "upcoming";
@@ -79,7 +82,7 @@ export default function TADashboard() {
   return (
     <MainLayout>
       <main className="max-w-5xl mx-auto px-4 py-8 space-y-8">
-        
+
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
           <div>
             <h1 className="text-3xl font-bold text-white tracking-tight flex items-center gap-3">
@@ -98,7 +101,7 @@ export default function TADashboard() {
               Switch to User Dashboard
             </Link>
             <Link
-              to="/create-contest" 
+              to="/create-contest"
               className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg bg-white text-bg-dark hover:opacity-90 transition-all shadow-lg"
             >
               <PlusCircle size={18} />
@@ -203,7 +206,7 @@ export default function TADashboard() {
                             to={`/manage-contest/${contest._id}`}
                             className="inline-flex items-center gap-1 text-sm text-brand-yellow hover:underline"
                           >
-                            Manage <MoreHorizontal size={14} />
+                            Manage
                           </Link>
                         </td>
                       </tr>

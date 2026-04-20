@@ -168,6 +168,15 @@ export const deleteContest = catchAsyncError(async (req, res, next) => {
 export const getContestById = catchAsyncError(async (req, res, next) => {
   const contest = await Contest.findById(req.params.id).lean();
   if (!contest) return next(new ErrorHandler("Contest not found.", 404));
+  
+  if (contest.isPublic === false && req.user) {
+    const isOwner = contest.created_by?.toString() === req.user._id.toString();
+    const isModerator = contest.moderators.some(m => m.toString() === req.user._id.toString());
+    if (!isOwner && !isModerator) {
+      return next(new ErrorHandler("Not authorized to view this contest.", 403));
+    }
+  }
+  
   const problems = await Problem.find({ contest_id: contest._id })
     .sort({ order_index: 1 })
     .select("title slug difficulty category time_limit memory_limit description order_index")
@@ -244,9 +253,16 @@ export const getMyContests = catchAsyncError(async (req, res, next) => {
   .sort({ start_time: -1 })
   .lean();
 
-  const contestsWithRole = contests.map((contest) => ({
-    ...contest,
-    isOwner: contest.created_by?.toString() === userId.toString(),
+  const contestsWithRole = await Promise.all(contests.map(async (contest) => {
+    const problems = await Problem.find({ contest_id: contest._id })
+      .sort({ order_index: 1 })
+      .select("title slug difficulty category description order_index")
+      .lean();
+    return {
+      ...contest,
+      problems,
+      isOwner: contest.created_by?.toString() === userId.toString(),
+    };
   }));
 
   return res.status(200).json({ success: true, contests: contestsWithRole });
@@ -324,4 +340,13 @@ export const getLeaderboard = catchAsyncError(async (req, res, next) => {
 
   const rank = accepted.map((r, i) => ({ rank: i + 1, ...r }));
   return res.status(200).json({ success: true, leaderboard: rank });
+});
+
+export const getPresets = catchAsyncError(async (req, res, next) => {
+  const presets = {
+    difficulties: ["Easy", "Medium", "Hard"],
+    categories: ["Arrays", "Graphs", "DP", "Trees", "Strings", "Math", "Greedy", "Other"],
+    groups: ["First year", "Second Year", "Coding Club", "Public"],
+  };
+  return res.status(200).json({ success: true, presets });
 });

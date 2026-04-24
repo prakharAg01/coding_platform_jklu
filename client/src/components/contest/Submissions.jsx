@@ -22,7 +22,7 @@ const StatusBadge = (status)=>{
   return <span className="text-slate-300 font-medium">{status}</span>
 }
 
-export default function Submissions({ isWidget = false, limit }) {
+export default function Submissions({ isWidget = false, limit, contestId }) {
   const [submissions, setSubmissions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -33,7 +33,12 @@ export default function Submissions({ isWidget = false, limit }) {
         setLoading(true);
         setError("");
 
-        const res = await fetch(`${API_BASE_URL}/api/v1/submissions`, {
+        let url = `${API_BASE_URL}/api/v1/submissions`;
+        if (contestId) {
+          url += `?contest_id=${contestId}`;
+        }
+
+        const res = await fetch(url, {
           method: "GET",
           credentials: "include", // needed because backend auth uses cookies
           headers: {
@@ -61,7 +66,7 @@ export default function Submissions({ isWidget = false, limit }) {
     };
 
     fetchSubmissions();
-  }, [limit]);
+  }, [limit, contestId]);
 
   return (
     <div className={isWidget ? "" : "mb-6"}>

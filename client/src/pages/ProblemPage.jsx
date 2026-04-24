@@ -307,7 +307,7 @@ export default function ChallengePage() {
               {activeTab === "SUBMISSIONS" && (
                   <div className="absolute inset-x-0 bottom-0 h-[calc(100%-40px)] p-0 z-10 overflow-hidden bg-bg-dark">
                     <div className="h-full overflow-auto">
-                      <Submissions isWidget={true} />
+                      <Submissions isWidget={true} contestId={contestId} />
                     </div>
                   </div>
               )}

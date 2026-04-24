@@ -15,7 +15,6 @@ export default function ContestPage() {
   const { isAuthenticated, user } = useContext(Context);
   const [contest, setContest] = useState(null);
   const [leaderboard, setLeaderboard] = useState([]);
-  const [submissions, setSubmissions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState("problems");
 
@@ -57,26 +56,6 @@ export default function ContestPage() {
     };
     if (id && contest) fetchLeaderboard();
   }, [id, contest]);
-
-  useEffect(() => {
-    const fetchSubmissions = async () => {
-      try {
-        let endpoint;
-        const isObjectId = /^[0-9a-fA-F]{24}$/.test(id);
-        if (isObjectId) {
-          endpoint = `/contests/${id}/submissions`;
-        } else {
-          const { data } = await api.get(`/contests/slug/${id}`);
-          endpoint = `/contests/${data.contest._id}/submissions`;
-        }
-        const { data } = await api.get(endpoint);
-        setSubmissions(data.submissions || []);
-      } catch {
-        setSubmissions([]);
-      }
-    };
-    if (id && contest && tab === "submissions") fetchSubmissions();
-  }, [id, contest, tab]);
 
   if (!isAuthenticated) {
     return <Navigate to="/auth" />;
@@ -155,7 +134,7 @@ export default function ContestPage() {
 
           {tab === "submissions" && (
             <div className="glass-card rounded-xl p-6">
-              <Submissions submissions={submissions} />
+              <Submissions contestId={contest._id} />
             </div>
           )}
 

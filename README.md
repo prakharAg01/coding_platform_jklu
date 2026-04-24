@@ -129,6 +129,3 @@ npm run dev
 ```
 *(Runs on `http://localhost:5173` by default)*
 
-## 📄 License
-
-ISC

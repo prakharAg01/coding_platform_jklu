@@ -54,3 +54,10 @@ export const fetchMergedLeaderboard = async (contestIds) => {
     const { data } = await api.post('/contests/merged-leaderboard', { contestIds });
     return data; // { contests: [{id, name}], rows: [{name, email, contestScores, combined}] }
 };
+
+
+// Search verified users by name or email (for TA additional-participant search)
+export const searchUsersForContest = async (query) => {
+    const { data } = await api.get(`/user/search?query=${encodeURIComponent(query)}`);
+    return data.users || [];
+};

@@ -49,3 +49,8 @@ export const createProblem = async (problemData) => {
     const { data } = await api.post('/problems', problemData);
     return data.problem;
 };
+
+export const fetchMergedLeaderboard = async (contestIds) => {
+    const { data } = await api.post('/contests/merged-leaderboard', { contestIds });
+    return data; // { contests: [{id, name}], rows: [{name, email, contestScores, combined}] }
+};

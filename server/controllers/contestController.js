@@ -426,3 +426,103 @@ export const getPresets = catchAsyncError(async (req, res, next) => {
   };
   return res.status(200).json({ success: true, presets });
 });
+
+// ── Merged Leaderboard ────────────────────────────────────────────────────────
+// POST /api/v1/contests/merged-leaderboard
+// Body: { contestIds: [id1, id2, ...] }
+// Returns a combined leaderboard matrix across multiple contests.
+export const getMergedLeaderboard = catchAsyncError(async (req, res, next) => {
+  const { contestIds } = req.body;
+
+  if (!Array.isArray(contestIds) || contestIds.length === 0) {
+    return next(new ErrorHandler("contestIds array is required.", 400));
+  }
+
+  // Validate all IDs
+  const validIds = contestIds.filter((id) => mongoose.Types.ObjectId.isValid(id));
+  if (validIds.length === 0) {
+    return next(new ErrorHandler("No valid contest IDs provided.", 400));
+  }
+
+  // Fetch contest names for column headers
+  const contests = await Contest.find({ _id: { $in: validIds } })
+    .select("_id name")
+    .lean();
+
+  // Map id → name for ordering
+  const idToName = {};
+  contests.forEach((c) => { idToName[c._id.toString()] = c.name; });
+
+  // Keep order as provided by caller
+  const orderedIds = validIds.filter((id) => idToName[id]);
+
+  // userMap: userId → { name, email, scores: { contestId: solvedCount } }
+  const userMap = {};
+
+  for (const contestId of orderedIds) {
+    const objectId = new mongoose.Types.ObjectId(contestId);
+
+    const hasLB = await ContestLeaderboard.exists({ contest_id: objectId });
+
+    if (hasLB) {
+      const rows = await ContestLeaderboard.find({ contest_id: objectId })
+        .populate("user_id", "name email")
+        .lean();
+
+      for (const row of rows) {
+        const uid = row.user_id?._id?.toString();
+        if (!uid) continue;
+        if (!userMap[uid]) {
+          userMap[uid] = { name: row.user_id.name, email: row.user_id.email, scores: {} };
+        }
+        userMap[uid].scores[contestId] = row.solved_count;
+      }
+    } else {
+      // Fallback: aggregate from submissions
+      const accepted = await Submission.aggregate([
+        { $match: { contest_id: objectId, status: "Accepted" } },
+        { $group: { _id: { user: "$user_id", problem: "$problem_id" } } },
+        { $group: { _id: "$_id.user", count: { $sum: 1 } } },
+        {
+          $lookup: {
+            from: "users",
+            localField: "_id",
+            foreignField: "_id",
+            as: "user",
+          },
+        },
+        { $unwind: "$user" },
+        { $project: { name: "$user.name", email: "$user.email", count: 1 } },
+      ]);
+
+      for (const row of accepted) {
+        const uid = row._id.toString();
+        if (!userMap[uid]) {
+          userMap[uid] = { name: row.name, email: row.email, scores: {} };
+        }
+        userMap[uid].scores[contestId] = row.count;
+      }
+    }
+  }
+
+  // Build merged rows
+  const rows = Object.entries(userMap).map(([uid, data]) => {
+    const contestScores = orderedIds.map((cid) => data.scores[cid] ?? 0);
+    const combined = contestScores.reduce((a, b) => a + b, 0);
+    return {
+      name: data.name,
+      email: data.email,
+      contestScores, // array aligned with orderedIds
+      combined,
+    };
+  });
+
+  // Sort by combined desc
+  rows.sort((a, b) => b.combined - a.combined);
+
+  return res.status(200).json({
+    success: true,
+    contests: orderedIds.map((id) => ({ id, name: idToName[id] })),
+    rows,
+  });
+});

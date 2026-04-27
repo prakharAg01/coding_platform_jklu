@@ -16,6 +16,8 @@ export const Context = createContext({
   setIsAuthenticated: () => {},
   user: null,
   setUser: () => {},
+  authLoading: true,
+  setAuthLoading: () => {},
 });
 
 const AppWrapper = () => {
@@ -27,6 +29,9 @@ const AppWrapper = () => {
     const stored = getStoredAuth();
     return stored?.user || null;
   });
+  // authLoading stays true until the /user/me check completes.
+  // ProtectedRoute blocks rendering until this is false.
+  const [authLoading, setAuthLoading] = useState(true);
 
   useEffect(() => {
     localStorage.setItem('authState', JSON.stringify({ isAuthenticated, user }));
@@ -34,7 +39,7 @@ const AppWrapper = () => {
 
   return (
     <Context.Provider
-      value={{ isAuthenticated, setIsAuthenticated, user, setUser }}
+      value={{ isAuthenticated, setIsAuthenticated, user, setUser, authLoading, setAuthLoading }}
     >
       <App />
     </Context.Provider>

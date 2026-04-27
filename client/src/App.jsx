@@ -24,24 +24,26 @@ import AdminDashboard from "./pages/AdminDashboard";
 import TeacherDashboard from "./pages/TeacherDashboard";
 import StudentClassDashboard from "./pages/StudentClassDashboard";
 import ClassDetailsPage from "./pages/ClassDetailsPage";
+import ProtectedRoute from "./components/ProtectedRoute";
 
 const API_BASE = "http://localhost:4000/api/v1";
 
 const App = () => {
-  const { setIsAuthenticated, setUser } = useContext(Context);
+  const { setIsAuthenticated, setUser, setAuthLoading } = useContext(Context);
 
   useEffect(() => {
     const getUser = async () => {
-      await axios
-        .get(`${API_BASE}/user/me`, { withCredentials: true })
-        .then((res) => {
-          setUser(res.data.user);
-          setIsAuthenticated(true);
-        })
-        .catch(() => {
-          setUser(null);
-          setIsAuthenticated(false);
-        });
+      try {
+        const res = await axios.get(`${API_BASE}/user/me`, { withCredentials: true });
+        setUser(res.data.user);
+        setIsAuthenticated(true);
+      } catch {
+        setUser(null);
+        setIsAuthenticated(false);
+      } finally {
+        // Signal that the server check is done — ProtectedRoute can now act.
+        setAuthLoading(false);
+      }
     };
     getUser();
   }, []);
@@ -66,13 +68,50 @@ const App = () => {
           <Route path="/password/forgot" element={<ForgotPassword />} />
           <Route path="/password/reset/:token" element={<ResetPassword />} />
           <Route path="/contests/archive" element={<ContestArchivePage />} />
-          <Route path="/ta-dashboard" element={<TADashboard />} />
-          <Route path="/manage-contest/:id" element={<ManageContestPage />} />
-          <Route path="/create-contest" element={<CreateContestPage />} />
-          <Route path="/admin" element={<AdminDashboard />} />
-          <Route path="/teacher-dashboard" element={<TeacherDashboard />} />
           <Route path="/my-classes" element={<StudentClassDashboard />} />
           <Route path="/class/:id" element={<ClassDetailsPage />} />
+
+          {/* ── Role-protected routes ─────────────────────────────────── */}
+          <Route
+            path="/admin"
+            element={
+              <ProtectedRoute allowedRoles={["Admin"]}>
+                <AdminDashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/teacher-dashboard"
+            element={
+              <ProtectedRoute allowedRoles={["Teacher", "Admin"]}>
+                <TeacherDashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/ta-dashboard"
+            element={
+              <ProtectedRoute allowedRoles={["TA", "Teacher", "Admin"]}>
+                <TADashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/create-contest"
+            element={
+              <ProtectedRoute allowedRoles={["TA", "Teacher", "Admin"]}>
+                <CreateContestPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/manage-contest/:id"
+            element={
+              <ProtectedRoute allowedRoles={["TA", "Teacher", "Admin"]}>
+                <ManageContestPage />
+              </ProtectedRoute>
+            }
+          />
         </Routes>
         <ToastContainer theme="colored" />
       </Router>

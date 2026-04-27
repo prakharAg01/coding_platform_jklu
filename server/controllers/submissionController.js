@@ -8,6 +8,7 @@ import { ContestLeaderboard } from "../models/leaderboardModel.js";
 import { createSubmission, createSubmissionWithLimits, normalizeStatus } from "../utils/judge0.js";
 import { createNotification } from "./notificationController.js";
 import { IpLog } from "../models/ipLogModel.js";
+import { getClientIp } from "../utils/getClientIp.js";
 
 /**
  * Update a user's daily practice streak.
@@ -297,8 +298,8 @@ export const submitCode = catchAsyncError(async (req, res, next) => {
   });
 
   if (contest_id) {
-    const subIp = (req.ip || req.socket?.remoteAddress || "unknown").replace(/^::ffff:/, "");
-    IpLog.create({ contest_id, user_id, ip: subIp, event: "submit" }).catch(() => {});
+    const subIp = getClientIp(req);
+    IpLog.create({ contest_id, user_id, ip: subIp, event: "submit", userAgent: req.headers["user-agent"] || "" }).catch(() => {});
   }
 
   // Update streak on any Accepted submission

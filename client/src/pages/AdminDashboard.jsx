@@ -736,12 +736,44 @@ function LeaderboardSection() {
 }
 
 // ── REPORTS ───────────────────────────────────────────────────────────────────
+const LOOPBACK_IPS = new Set(["127.0.0.1", "::1", "localhost", "unknown"]);
+
+function isLoopback(ip) {
+  return LOOPBACK_IPS.has(ip) || ip?.startsWith("::ffff:127.");
+}
+
+function buildUserIpMap(logs) {
+  const map = {};
+  logs.forEach((l) => {
+    const uid = l.user_id?._id ?? l.user_id ?? "unknown";
+    if (!map[uid]) map[uid] = { registerIps: new Set(), submitIps: new Set() };
+    if (l.event === "register") map[uid].registerIps.add(l.ip);
+    if (l.event === "submit")   map[uid].submitIps.add(l.ip);
+  });
+  return map;
+}
+
+function isSuspicious(uid, ipMap) {
+  const entry = ipMap[uid];
+  if (!entry) return false;
+  if (entry.registerIps.size === 0 || entry.submitIps.size === 0) return false;
+  for (const rIp of entry.registerIps) {
+    for (const sIp of entry.submitIps) {
+      if (rIp !== sIp) return true;
+    }
+  }
+  return false;
+}
+
 function ReportsSection() {
   const [contests, setContests] = useState([]);
   const [selectedId, setSelectedId] = useState("");
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const [eventFilter, setEventFilter] = useState("All");
+  const [showSuspicious, setShowSuspicious] = useState(false);
 
   useEffect(() => {
     api.get("/admin/contests").then(({ data }) => setContests(data.contests)).catch(() => {});
@@ -750,19 +782,56 @@ function ReportsSection() {
   useEffect(() => {
     if (!selectedId) { setLogs([]); return; }
     setLoading(true);
-    api.get(`/admin/contests/${selectedId}/ip-logs`).then(({ data }) => setLogs(data.logs)).catch(() => toast.error("Failed to load logs")).finally(() => setLoading(false));
+    setSearch("");
+    setEventFilter("All");
+    setShowSuspicious(false);
+    api.get(`/admin/contests/${selectedId}/ip-logs`)
+      .then(({ data }) => setLogs(data.logs))
+      .catch(() => toast.error("Failed to load logs"))
+      .finally(() => setLoading(false));
   }, [selectedId]);
 
-  const cols = [
+  const selectedContest = contests.find((c) => c._id === selectedId);
+  const userIpMap = buildUserIpMap(logs);
+
+  const allRows = logs.map((l) => {
+    const uid = l.user_id?._id ?? l.user_id ?? "unknown";
+    return {
+      uid,
+      name: l.user_id?.name ?? "—",
+      email: l.user_id?.email ?? "—",
+      ip: l.ip,
+      userAgent: l.userAgent || "",
+      event: l.event,
+      timestamp: new Date(l.timestamp).toLocaleString(),
+      suspicious: isSuspicious(uid, userIpMap),
+      loopback: isLoopback(l.ip),
+    };
+  });
+
+  const filtered = allRows.filter((r) => {
+    const q = search.toLowerCase();
+    const matchSearch = !search || r.name.toLowerCase().includes(q) || r.email.toLowerCase().includes(q) || r.ip.toLowerCase().includes(q);
+    const matchEvent = eventFilter === "All" || r.event === eventFilter;
+    const matchSuspicious = !showSuspicious || r.suspicious;
+    return matchSearch && matchEvent && matchSuspicious;
+  });
+
+  const uniqueStudents = new Set(allRows.map((r) => r.uid)).size;
+  const uniqueIps = new Set(allRows.map((r) => r.ip)).size;
+  const suspiciousCount = new Set(allRows.filter((r) => r.suspicious).map((r) => r.uid)).size;
+  const loopbackCount = allRows.filter((r) => r.loopback).length;
+
+  const exportCols = [
     { key: "name", label: "Name" },
     { key: "email", label: "Email" },
     { key: "ip", label: "IP Address" },
     { key: "event", label: "Event" },
     { key: "timestamp", label: "Timestamp" },
   ];
-  const rows = logs.map((l) => ({ name: l.user_id?.name ?? "—", email: l.user_id?.email ?? "—", ip: l.ip, event: l.event, timestamp: new Date(l.timestamp).toLocaleString() }));
-  const selectedContest = contests.find((c) => c._id === selectedId);
-  const { page: ipPage, setPage: setIpPage, pages: ipPages, paginated: pageIpRows } = usePagination(rows, selectedId);
+
+  const { page: ipPage, setPage: setIpPage, pages: ipPages, paginated: pageIpRows } =
+    usePagination(filtered, selectedId + search + eventFilter + String(showSuspicious));
 
   return (
     <div>
@@ -776,52 +845,148 @@ function ReportsSection() {
         </FilterSelect>
       </Card>
 
+      {selectedId && !loading && logs.length > 0 && (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+          {[
+            { label: "Total Logs", value: allRows.length, color: "text-white" },
+            { label: "Unique Students", value: uniqueStudents, color: "text-blue-400" },
+            { label: "Unique IPs", value: uniqueIps, color: "text-amber-400" },
+            { label: "Suspicious Students", value: suspiciousCount, color: suspiciousCount > 0 ? "text-red-400" : "text-emerald-400" },
+          ].map(({ label, value, color }) => (
+            <Card key={label} className="py-3 px-4">
+              <p className="text-xs text-zinc-500 mb-1">{label}</p>
+              <p className={`text-2xl font-bold font-display ${color}`}>{value}</p>
+            </Card>
+          ))}
+        </div>
+      )}
+
       {selectedId && (
         <div>
-          <div className="flex items-center justify-between mb-4">
-            <p className="text-sm text-zinc-400">{logs.length} log entries for <span className="text-white">{selectedContest?.name}</span></p>
-            <div className="relative">
-              <button onClick={() => setExportOpen((v) => !v)} className="flex items-center gap-2 px-4 py-2 bg-zinc-800 border border-white/10 rounded-lg text-sm text-zinc-300 hover:text-white hover:bg-zinc-700 transition-colors">
-                <Download size={14} /> Export <ChevronDown size={13} className={`transition-transform ${exportOpen ? "rotate-180" : ""}`} />
-              </button>
-              {exportOpen && (
-                <div className="absolute right-0 top-full mt-1 bg-zinc-800 border border-white/10 rounded-lg shadow-xl py-1 z-10 w-40">
-                  <button onClick={() => { exportCSV(rows, cols, `ip-logs-${selectedId}.csv`); setExportOpen(false); }} className="w-full text-left px-4 py-2 text-sm text-zinc-300 hover:text-white hover:bg-white/5 flex items-center gap-2 transition-colors">
-                    <Download size={13} /> Download CSV
-                  </button>
-                  <button onClick={() => { exportPDF(rows, cols, `IP Logs — ${selectedContest?.name}`); setExportOpen(false); }} className="w-full text-left px-4 py-2 text-sm text-zinc-300 hover:text-white hover:bg-white/5 flex items-center gap-2 transition-colors">
-                    <Printer size={13} /> Print / PDF
-                  </button>
-                </div>
+          <div className="flex flex-wrap gap-3 mb-4 items-center justify-between">
+            <div className="flex flex-wrap gap-3 flex-1">
+              <div className="relative flex-1 min-w-44">
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
+                <input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search name, email or IP…"
+                  className="w-full bg-zinc-800 border border-white/10 rounded-lg pl-9 pr-4 py-2 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-amber-400/50"
+                />
+              </div>
+              <FilterSelect value={eventFilter} onChange={(e) => setEventFilter(e.target.value)}>
+                <option value="All">All Events</option>
+                <option value="register">Register</option>
+                <option value="submit">Submit</option>
+              </FilterSelect>
+              {suspiciousCount > 0 && (
+                <button
+                  onClick={() => setShowSuspicious((v) => !v)}
+                  className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm border transition-colors ${
+                    showSuspicious
+                      ? "bg-red-500/20 border-red-500/40 text-red-400"
+                      : "bg-zinc-800 border-white/10 text-zinc-400 hover:text-white"
+                  }`}
+                >
+                  <Shield size={13} />
+                  {showSuspicious ? "Showing Suspicious" : `${suspiciousCount} Suspicious`}
+                </button>
               )}
+            </div>
+            <div className="flex items-center gap-2">
+              <p className="text-xs text-zinc-500">{filtered.length} / {allRows.length} entries</p>
+              <div className="relative">
+                <button
+                  onClick={() => setExportOpen((v) => !v)}
+                  className="flex items-center gap-2 px-4 py-2 bg-zinc-800 border border-white/10 rounded-lg text-sm text-zinc-300 hover:text-white hover:bg-zinc-700 transition-colors"
+                >
+                  <Download size={14} /> Export <ChevronDown size={13} className={`transition-transform ${exportOpen ? "rotate-180" : ""}`} />
+                </button>
+                {exportOpen && (
+                  <div className="absolute right-0 top-full mt-1 bg-zinc-800 border border-white/10 rounded-lg shadow-xl py-1 z-10 w-44">
+                    <button onClick={() => { exportCSV(filtered, exportCols, `ip-logs-${selectedId}.csv`); setExportOpen(false); }} className="w-full text-left px-4 py-2 text-sm text-zinc-300 hover:text-white hover:bg-white/5 flex items-center gap-2 transition-colors">
+                      <Download size={13} /> Download CSV
+                    </button>
+                    <button onClick={() => { exportPDF(filtered, exportCols, `IP Logs — ${selectedContest?.name}`); setExportOpen(false); }} className="w-full text-left px-4 py-2 text-sm text-zinc-300 hover:text-white hover:bg-white/5 flex items-center gap-2 transition-colors">
+                      <Printer size={13} /> Print / PDF
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
+          {!loading && loopbackCount > 0 && (
+            <div className="flex items-start gap-2 mb-4 px-4 py-3 rounded-lg bg-amber-400/10 border border-amber-400/20 text-amber-300 text-sm">
+              <Info size={14} className="mt-0.5 flex-shrink-0 text-amber-400" />
+              <span>
+                <strong>{loopbackCount}</strong> log{loopbackCount > 1 ? "s" : ""} recorded a loopback address
+                (<code className="font-mono text-xs">127.0.0.1 / ::1</code>). This is expected in local development
+                when no reverse proxy adds the X-Forwarded-For header.
+              </span>
+            </div>
+          )}
+
           {loading ? <TableSkeleton /> : (
-          <Card className="p-0 overflow-hidden">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-white/10 bg-zinc-900/50">
-                  {["Name", "Email", "IP Address", "Event", "Timestamp"].map((h) => (
-                    <th key={h} className="text-left px-4 py-3 text-xs font-medium text-zinc-400 uppercase tracking-wide">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {pageIpRows.length === 0 ? <tr><td colSpan={5} className="text-center py-8 text-zinc-500">No IP logs yet for this contest</td></tr>
-                  : pageIpRows.map((r, i) => (
-                    <tr key={i} className="border-b border-white/5 hover:bg-white/3 transition-colors">
-                      <td className="px-4 py-3 text-white">{r.name}</td>
-                      <td className="px-4 py-3 text-zinc-400">{r.email}</td>
-                      <td className="px-4 py-3 font-mono text-sm text-amber-400">{r.ip}</td>
-                      <td className="px-4 py-3"><Badge color={r.event === "register" ? "blue" : "green"}>{r.event}</Badge></td>
+            <Card className="p-0 overflow-hidden">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-white/10 bg-zinc-900/50">
+                    {["Student", "Email", "IP Address", "Event", "Timestamp", "Flags"].map((h) => (
+                      <th key={h} className="text-left px-4 py-3 text-xs font-medium text-zinc-400 uppercase tracking-wide">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {pageIpRows.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="text-center py-10 text-zinc-500">
+                        {allRows.length === 0 ? "No IP logs yet for this contest" : "No logs match current filters"}
+                      </td>
+                    </tr>
+                  ) : pageIpRows.map((r, i) => (
+                    <tr
+                      key={i}
+                      className={`border-b border-white/5 transition-colors ${r.suspicious ? "bg-red-500/5 hover:bg-red-500/10" : "hover:bg-white/3"}`}
+                    >
+                      <td className="px-4 py-3 text-white font-medium">{r.name}</td>
+                      <td className="px-4 py-3 text-zinc-400 text-xs">{r.email}</td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={`font-mono text-sm ${r.loopback ? "text-zinc-500" : "text-amber-400"}`}
+                            title={r.userAgent || "No user agent recorded"}
+                          >
+                            {r.ip}
+                          </span>
+                          {r.loopback && (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-zinc-700 text-zinc-400">local</span>
+                          )}
+                          {r.userAgent && (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-zinc-800 text-zinc-500 cursor-help border border-white/5" title={r.userAgent}>
+                              UA
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <Badge color={r.event === "register" ? "blue" : "green"}>{r.event}</Badge>
+                      </td>
                       <td className="px-4 py-3 text-zinc-400 text-xs">{r.timestamp}</td>
+                      <td className="px-4 py-3">
+                        {r.suspicious && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-red-500/15 text-red-400" title="IP changed between registration and submission">
+                            <Shield size={10} /> IP Change
+                          </span>
+                        )}
+                      </td>
                     </tr>
                   ))}
-              </tbody>
-            </table>
-          </Card>)}
-          <PaginationBar page={ipPage} pages={ipPages} setPage={setIpPage} total={rows.length} />
+                </tbody>
+              </table>
+            </Card>
+          )}
+          <PaginationBar page={ipPage} pages={ipPages} setPage={setIpPage} total={filtered.length} />
         </div>
       )}
     </div>

@@ -23,6 +23,5 @@ const contestSchema = new mongoose.Schema({
 });
 
 contestSchema.index({ start_time: 1, end_time: 1 });
-contestSchema.index({ slug: 1 }); // Essential for looking up contests by URL
 
 export const Contest = mongoose.model("Contest", contestSchema);

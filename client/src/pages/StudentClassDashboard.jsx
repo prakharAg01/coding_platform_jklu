@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import MainLayout from "../layout/MainLayout";
 import { Plus, X, Users, Activity, Clock } from "lucide-react";
 import api from "../api/client";
@@ -37,6 +38,7 @@ const formatDueDate = (dateString) => {
   });
 };
 export default function StudentClassDashboard() {
+  const navigate = useNavigate();
   const [classes, setClasses] = useState([]);
   const [dueSoonLabs, setDueSoonLabs] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -45,28 +47,38 @@ export default function StudentClassDashboard() {
   const [isJoining, setIsJoining] = useState(false);
 
   useEffect(() => {
-    fetchClasses();
-    fetchDueSoonLabs();
+    fetchAllData();
   }, []);
 
-  const fetchDueSoonLabs = async () => {
-    try {
-      const { data } = await api.get("/labs/due-soon");
-      setDueSoonLabs(data.dueSoon || []);
-    } catch (error) {
-      console.error("Failed to load due soon labs:", error);
+  const fetchAllData = async () => {
+    setIsLoading(true);
+    const [classesResult, dueSoonResult] = await Promise.allSettled([
+      api.get("/classes"),
+      api.get("/labs/due-soon"),
+    ]);
+
+    if (classesResult.status === "fulfilled") {
+      setClasses(classesResult.value.data.classes || []);
+    } else {
+      toast.error(classesResult.reason?.response?.data?.message || "Failed to load classes");
     }
+
+    if (dueSoonResult.status === "fulfilled") {
+      setDueSoonLabs(dueSoonResult.value.data.dueSoon || []);
+    } else {
+      console.error("Failed to load due soon labs:", dueSoonResult.reason);
+    }
+
+    setIsLoading(false);
   };
 
+  // Keep fetchClasses for the join-class refresh (no need to re-fetch due-soon on join)
   const fetchClasses = async () => {
     try {
-      setIsLoading(true);
       const { data } = await api.get("/classes");
       setClasses(data.classes || []);
     } catch (error) {
       toast.error(error.response?.data?.message || "Failed to load classes");
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -129,7 +141,7 @@ export default function StudentClassDashboard() {
                 return (
                   <div 
                     key={cls._id} 
-                    onClick={() => window.location.href = `/class/${cls._id}`}
+                    onClick={() => navigate(`/class/${cls._id}`)}
                     className="bg-card-dark rounded-2xl overflow-hidden border border-white/10 flex flex-col hover:border-white/20 transition-all shadow-xl group relative cursor-pointer"
                   >
                     
@@ -159,7 +171,7 @@ export default function StudentClassDashboard() {
                       <div className="flex items-center gap-4 text-sm text-zinc-400">
                         <div className="flex items-center gap-1.5" title="Enrolled Students">
                           <Users size={15} />
-                          <span>{cls.students?.length || 0}</span>
+                          <span>{cls.studentCount || 0}</span>
                         </div>
                         <div className="flex items-center gap-1.5" title="Status">
                           <Activity size={15} />
@@ -216,31 +228,37 @@ export default function StudentClassDashboard() {
             </div>
           ) : (
             <div className="bg-card-dark rounded-2xl border border-white/10 p-6">
-              <div className="space-y-6 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-white/10 before:to-transparent">
-                
+              <div className="space-y-4">
                 {dueSoonLabs.map((lab, i) => {
                   const colors = ["bg-blue-500", "bg-purple-500", "bg-emerald-500", "bg-rose-500", "bg-amber-500"];
                   const color = colors[i % colors.length];
-                  
+                  const textColor = color.replace("bg-", "text-");
+
                   return (
-                    <div key={lab._id} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
-                      
-                      {/* Timeline Dot */}
-                      <div className={`flex items-center justify-center w-10 h-10 rounded-full border-4 border-card-dark ${color} shadow-lg shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 relative z-10`}>
+                    <div
+                      key={lab._id}
+                      onClick={() => navigate(`/class/${lab.class_id}/labs/${lab._id}`)}
+                      className="flex items-center gap-4 p-4 rounded-xl border border-white/5 bg-bg-dark hover:border-white/20 hover:bg-white/5 transition-all cursor-pointer group"
+                    >
+                      {/* Colored Dot */}
+                      <div className={`flex items-center justify-center w-10 h-10 rounded-full ${color} shadow-lg shrink-0`}>
                         <Clock size={16} className="text-white" />
                       </div>
-                      
-                      {/* Card */}
-                      <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-xl border border-white/5 bg-bg-dark shadow-sm hover:border-white/20 transition-colors cursor-pointer" onClick={() => window.location.href = `/class/${lab.class_id}/labs/${lab._id}`}>
-                        <div className="flex items-center justify-between mb-1">
-                          <span className={`text-xs font-bold uppercase tracking-wider ${color.replace('bg-', 'text-')}`}>
-                            {lab.course}
-                          </span>
-                          <span className="text-xs text-zinc-400 bg-white/5 px-2 py-0.5 rounded-full">{formatDueDate(lab.date)}</span>
-                        </div>
-                        <h4 className="text-sm font-semibold text-white">{lab.title}</h4>
+
+                      {/* Info */}
+                      <div className="flex-1 min-w-0">
+                        <span className={`text-xs font-bold uppercase tracking-wider ${textColor}`}>
+                          {lab.course}
+                        </span>
+                        <h4 className="text-sm font-semibold text-white group-hover:text-brand-yellow transition-colors truncate">
+                          {lab.title}
+                        </h4>
                       </div>
 
+                      {/* Due Date */}
+                      <span className="text-xs text-zinc-400 bg-white/5 px-3 py-1 rounded-full shrink-0 whitespace-nowrap">
+                        {formatDueDate(lab.date)}
+                      </span>
                     </div>
                   );
                 })}

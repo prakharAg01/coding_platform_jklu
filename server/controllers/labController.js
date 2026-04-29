@@ -84,27 +84,26 @@ export const updateLab = catchAsyncError(async (req, res, next) => {
 export const getLabsForClass = catchAsyncError(async (req, res, next) => {
   const classId = req.params.classId;
 
-  const classDetails = await Class.findById(classId);
+  // Use a lightweight existence check instead of loading the full class with all students
+  const isTeacher = !!(await Class.exists({ _id: classId, teacher: req.user._id }));
+  const isStudent = !!(await Class.exists({ _id: classId, students: req.user._id }));
+  const isAdmin = req.user.role === "Admin";
 
-  if (!classDetails) {
-    return next(new ErrorHandler("Class not found.", 404));
-  }
-
-  const isTeacher = classDetails.teacher.toString() === req.user._id.toString();
-  const isStudent = classDetails.students.some(
-    (student) => student.toString() === req.user._id.toString()
-  );
-
-  if (!isTeacher && !isStudent && req.user.role !== "Admin") {
+  if (!isTeacher && !isStudent && !isAdmin) {
+    // Verify the class exists before returning 403 vs 404
+    const exists = await Class.exists({ _id: classId });
+    if (!exists) return next(new ErrorHandler("Class not found.", 404));
     return next(new ErrorHandler("Not authorized to view labs for this class.", 403));
   }
 
   let filter = { class_id: classId };
-  if (!isTeacher && req.user.role !== "Admin") {
+  if (!isTeacher && !isAdmin) {
     filter.isVisible = true; // Students only see visible labs
   }
 
-  const labs = await Lab.find(filter).populate("questions", "title difficulty slug");
+  const labs = await Lab.find(filter)
+    .populate("questions", "title difficulty slug")
+    .lean();
 
   res.status(200).json({
     success: true,
@@ -186,22 +185,28 @@ export const getGradesForClass = catchAsyncError(async (req, res, next) => {
 });
 
 export const getDueSoonLabs = catchAsyncError(async (req, res, next) => {
-  // 1. Get all classes the student is enrolled in
-  const classes = await Class.find({ students: req.user._id }).select('_id name branch');
+  // 1. Get all classes the student is enrolled in (only fetch needed fields)
+  const classes = await Class.find({ students: req.user._id })
+    .select('_id name')
+    .lean();
   const classIds = classes.map(c => c._id);
-  
+
   // Create a mapping to easily attach class info
   const classMap = classes.reduce((acc, c) => {
     acc[c._id.toString()] = c.name;
     return acc;
   }, {});
 
-  // 2. Find upcoming labs for those classes
+  // 2. Find upcoming labs for those classes (only fetch fields we need)
   const labs = await Lab.find({
     class_id: { $in: classIds },
     isVisible: true,
     deadline: { $gte: new Date() }
-  }).sort({ deadline: 1 }).limit(10);
+  })
+    .sort({ deadline: 1 })
+    .limit(10)
+    .select('_id title class_id deadline')
+    .lean();
 
   // 3. Format the response
   const dueSoon = labs.map(lab => ({

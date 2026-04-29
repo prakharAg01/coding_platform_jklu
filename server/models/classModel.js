@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 
 const classSchema = new mongoose.Schema({
-  teacher: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+  teacher: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, index: true },
   name: { type: String, required: true },
   year: { type: String, required: true },
   branch: { type: String, required: true },
@@ -12,5 +12,8 @@ const classSchema = new mongoose.Schema({
   students: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
   createdAt: { type: Date, default: Date.now },
 });
+
+// Compound index for fast student enrollment lookups
+classSchema.index({ students: 1 });
 
 export const Class = mongoose.model("Class", classSchema);

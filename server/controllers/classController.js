@@ -51,14 +51,24 @@ export const getClasses = catchAsyncError(async (req, res, next) => {
   let classes = [];
 
   if (req.user.role === "Teacher" || req.user.role === "Admin") {
-    // Teachers see classes they created
+    // Teachers see classes they created — include student list for management
     classes = await Class.find({ teacher: req.user._id })
       .populate("teacher", "name email")
-      .populate("students", "name email");
+      .populate("students", "name email")
+      .lean();
   } else {
-    // Students see classes they are enrolled in
-    classes = await Class.find({ students: req.user._id })
-      .populate("teacher", "name email");
+    // Students only need class metadata + teacher name — no full student list needed
+    const rawClasses = await Class.find({ students: req.user._id })
+      .populate("teacher", "name")
+      .select("name year branch semester section teacher students")
+      .lean();
+
+    // Strip out the massive students array and replace with a simple count
+    classes = rawClasses.map(cls => {
+      cls.studentCount = cls.students ? cls.students.length : 0;
+      delete cls.students;
+      return cls;
+    });
   }
 
   res.status(200).json({
@@ -70,22 +80,31 @@ export const getClasses = catchAsyncError(async (req, res, next) => {
 export const getClassDetails = catchAsyncError(async (req, res, next) => {
   const classId = req.params.id;
 
+  // Fetch with .lean() for speed. We DO NOT populate students here because
+  // we only need their ObjectIds for the auth check, which are already present.
   const classDetails = await Class.findById(classId)
     .populate("teacher", "name email")
-    .populate("students", "name email");
+    .lean();
 
   if (!classDetails) {
     return next(new ErrorHandler("Class not found.", 404));
   }
 
-  // Authorization check
+  // Authorization check - classDetails.students is an array of ObjectIds
   const isTeacher = classDetails.teacher._id.toString() === req.user._id.toString();
   const isStudent = classDetails.students.some(
-    (student) => student._id.toString() === req.user._id.toString()
+    (studentId) => studentId.toString() === req.user._id.toString()
   );
 
   if (!isTeacher && !isStudent && req.user.role !== "Admin") {
     return next(new ErrorHandler("Not authorized to view this class.", 403));
+  }
+
+  // To save network bandwidth for students, we strip out the huge students array
+  // (Teachers/Admins still need it for the management UI)
+  if (!isTeacher && req.user.role !== "Admin") {
+    classDetails.studentCount = classDetails.students.length;
+    delete classDetails.students;
   }
 
   res.status(200).json({

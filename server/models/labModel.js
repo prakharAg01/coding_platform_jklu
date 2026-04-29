@@ -10,4 +10,9 @@ const labSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now },
 });
 
+// Index for fast class-based lab lookups (most common query pattern)
+labSchema.index({ class_id: 1, isVisible: 1 });
+// Index for due-soon queries (deadline range scans)
+labSchema.index({ class_id: 1, deadline: 1 });
+
 export const Lab = mongoose.model("Lab", labSchema);

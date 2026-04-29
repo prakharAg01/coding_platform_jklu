@@ -46,18 +46,16 @@ export default function ClassDetailsPage() {
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      // Fetch Class Details
-      const classRes = await api.get(`/classes/${id}`);
+      // Fetch all data in parallel for faster load
+      const [classRes, annRes, labsRes] = await Promise.all([
+        api.get(`/classes/${id}`),
+        api.get(`/announcements/class/${id}`),
+        api.get(`/labs/class/${id}`),
+      ]);
+
       setClassDetails(classRes.data.classDetails);
-
-      // Fetch Announcements
-      const annRes = await api.get(`/announcements/class/${id}`);
       setAnnouncements(annRes.data.announcements || []);
-
-      // Fetch Labs
-      const labsRes = await api.get(`/labs/class/${id}`);
       setLabs(labsRes.data.labs || []);
-
     } catch (error) {
       console.error("Error fetching class details:", error);
       toast.error(error.response?.data?.message || "Failed to load class data");

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useContext } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import MainLayout from "../layout/MainLayout";
 import { 
@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import api from "../api/client";
 import { toast } from "react-toastify";
+import { Context } from "../main";
 
 // Helper to format dates
 const formatDateTime = (dateString) => {
@@ -32,7 +33,7 @@ const getInitials = (name) => {
 export default function ClassDetailsPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  
+  const { user } = useContext(Context) || {};
   const [activeTab, setActiveTab] = useState("stream");
   const [classDetails, setClassDetails] = useState(null);
   const [announcements, setAnnouncements] = useState([]);
@@ -55,7 +56,17 @@ export default function ClassDetailsPage() {
 
       setClassDetails(classRes.data.classDetails);
       setAnnouncements(annRes.data.announcements || []);
-      setLabs(labsRes.data.labs || []);
+      // Filter labs to those created by the teacher of this class when possible
+      const fetchedLabs = labsRes.data.labs || [];
+      const teacherId = classRes.data?.classDetails?.teacher?.id || classRes.data?.classDetails?.teacher?._id;
+      const filteredLabs = fetchedLabs.filter((lab) => {
+        const creatorId = lab?.creatorId || lab?.creator?._id || lab?.creator?.id;
+        if (teacherId) {
+          return creatorId ? String(creatorId) === String(teacherId) : true;
+        }
+        return true;
+      });
+      setLabs(filteredLabs);
     } catch (error) {
       console.error("Error fetching class details:", error);
       toast.error(error.response?.data?.message || "Failed to load class data");
@@ -129,6 +140,19 @@ export default function ClassDetailsPage() {
             >
               Classwork
               {activeTab === "classwork" && (
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-brand-yellow rounded-t-full" />
+              )}
+            </button>
+            <button
+              onClick={() => setActiveTab("labexams")}
+              className={`pb-4 px-2 relative font-medium transition-colors ${
+                activeTab === "labexams" 
+                  ? "text-brand-yellow" 
+                  : "text-zinc-400 hover:text-white"
+              }`}
+            >
+              Lab Exams
+              {activeTab === "labexams" && (
                 <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-brand-yellow rounded-t-full" />
               )}
             </button>
@@ -260,6 +284,40 @@ export default function ClassDetailsPage() {
                           Due {formatDateTime(lab.deadline)}
                         </div>
                       )}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+
+          {activeTab === "labexams" && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {labs.length === 0 ? (
+                <div className="bg-card-dark border border-white/10 rounded-xl p-6 text-center text-zinc-400 w-full">
+                  No lab exams posted yet for this course.
+                </div>
+              ) : (
+                labs.map((lab) => (
+                  <div
+                    key={lab._id}
+                    onClick={() => navigate(`/class/${id}/labs/${lab._id}`)}
+                    className="bg-card-dark border border-white/10 rounded-xl p-5 shadow-sm cursor-pointer hover:bg-white/5 transition-all group"
+                  >
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="w-9 h-9 rounded-full bg-blue-500/10 flex items-center justify-center">
+                        <FileText size={18} className="text-blue-400" />
+                      </div>
+                      <div className="flex-1">
+                        <h4 className="text-sm font-semibold text-white truncate">{lab.title}</h4>
+                        <p className="text-xs text-zinc-400 truncate">{lab.description || "Lab exam"}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between mt-2 text-xs text-zinc-500">
+                      <span>
+                        Due {lab.deadline ? new Date(lab.deadline).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—'}
+                      </span>
+                      <span>View Questions</span>
                     </div>
                   </div>
                 ))

@@ -111,7 +111,7 @@ export default function Dashboard() {
   }, []);
 
   if (!isAuthenticated) return <Navigate to="/auth" />;
-  if (user?.role === "Admin") return <Navigate to="/admin" replace />;
+  if (user?.role === "Sadmin") return <Navigate to="/admin" replace />;
   if (user?.role === "Teacher") return <Navigate to="/teacher-dashboard" replace />;
 
   // Get current contest for hero
@@ -143,7 +143,7 @@ export default function Dashboard() {
                   TA Dashboard
                 </button>
               )}
-              {(user?.role === "Teacher" || user?.role === "Admin") && (
+              {(user?.role === "Teacher" || user?.role === "Sadmin") && (
                 <button
                   onClick={() => navigate("/teacher-dashboard")}
                   className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg bg-white/5 text-white border border-white/10 hover:bg-amber-400/10 hover:border-amber-400/20 hover:text-amber-400 transition-all group"
@@ -152,7 +152,7 @@ export default function Dashboard() {
                   Teacher Dashboard
                 </button>
               )}
-              {user?.role === "Admin" && (
+              {user?.role === "Sadmin" && (
                 <button
                   onClick={() => navigate("/admin")}
                   className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg bg-amber-400/10 text-amber-400 border border-amber-400/20 hover:bg-amber-400/20 transition-all"

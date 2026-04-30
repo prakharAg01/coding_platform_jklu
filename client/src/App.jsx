@@ -79,7 +79,7 @@ const App = () => {
           <Route
             path="/admin"
             element={
-              <ProtectedRoute allowedRoles={["Admin"]}>
+              <ProtectedRoute allowedRoles={["Sadmin"]}>
                 <AdminDashboard />
               </ProtectedRoute>
             }
@@ -87,7 +87,7 @@ const App = () => {
           <Route
             path="/teacher-dashboard"
             element={
-              <ProtectedRoute allowedRoles={["Teacher", "Admin"]}>
+              <ProtectedRoute allowedRoles={["Teacher", "Sadmin"]}>
                 <TeacherDashboard />
               </ProtectedRoute>
             }
@@ -95,7 +95,7 @@ const App = () => {
           <Route
             path="/ta-dashboard"
             element={
-              <ProtectedRoute allowedRoles={["TA", "Teacher", "Admin"]}>
+              <ProtectedRoute allowedRoles={["TA", "Teacher", "Sadmin"]}>
                 <TADashboard />
               </ProtectedRoute>
             }
@@ -103,7 +103,7 @@ const App = () => {
           <Route
             path="/create-contest"
             element={
-              <ProtectedRoute allowedRoles={["TA", "Teacher", "Admin"]}>
+              <ProtectedRoute allowedRoles={["TA", "Teacher", "Sadmin"]}>
                 <CreateContestPage />
               </ProtectedRoute>
             }
@@ -111,7 +111,7 @@ const App = () => {
           <Route
             path="/manage-contest/:id"
             element={
-              <ProtectedRoute allowedRoles={["TA", "Teacher", "Admin"]}>
+              <ProtectedRoute allowedRoles={["TA", "Teacher", "Sadmin"]}>
                 <ManageContestPage />
               </ProtectedRoute>
             }
@@ -119,7 +119,7 @@ const App = () => {
           <Route
             path="/manage-exam/:id"
             element={
-              <ProtectedRoute allowedRoles={["Teacher", "Admin"]}>
+              <ProtectedRoute allowedRoles={["Teacher", "Sadmin"]}>
                 <ManageContestPage />
               </ProtectedRoute>
             }

@@ -31,7 +31,7 @@ export default function CreateContestPage({ isEmbedded = false, onBack, isExam =
     : {};
 
   const backDest =
-    currentUser?.role === "Teacher" || currentUser?.role === "Admin"
+    currentUser?.role === "Teacher" || currentUser?.role === "Sadmin"
       ? "/teacher-dashboard"
       : "/ta-dashboard";
   const editId = searchParams.get("edit");

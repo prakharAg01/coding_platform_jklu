@@ -9,7 +9,7 @@ import ContestSidebar from "../components/contest/ContestSidebar";
 import LeaderboardTable from "../components/contest/LeaderboardTable";
 import Submissions from "../components/contest/Submissions";
 
-const TEACHER_ROLES = new Set(["Teacher", "Admin", "TA"]);
+const TEACHER_ROLES = new Set(["Teacher", "Sadmin", "TA"]);
 
 /** Minimal top bar shown to teachers instead of the student Navbar */
 function TeacherTopBar({ contestName, contestId }) {

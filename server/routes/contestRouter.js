@@ -6,19 +6,19 @@ const router = express.Router();
 
 router.get("/slug/:slug", getContestBySlug);
 router.get("/", getContests);
-router.post("/", isAuthenticated, authorizeRoles("Teacher", "Admin", "TA"), createContest);
-router.put("/:id", isAuthenticated, authorizeRoles("Teacher", "Admin", "TA"), updateContest);
-router.delete("/:id", isAuthenticated, authorizeRoles("Teacher", "Admin", "TA"), deleteContest);
+router.post("/", isAuthenticated, authorizeRoles("Teacher", "Sadmin", "TA"), createContest);
+router.put("/:id", isAuthenticated, authorizeRoles("Teacher", "Sadmin", "TA"), updateContest);
+router.delete("/:id", isAuthenticated, authorizeRoles("Teacher", "Sadmin", "TA"), deleteContest);
 router.get("/my", isAuthenticated, getMyContests);
 router.get("/presets", getPresets);
 router.get("/active", getActiveContest);
 // Merged leaderboard — must be before /:id routes to avoid conflict
 router.post("/merged-leaderboard", isAuthenticated, getMergedLeaderboard);
-router.post("/:id/problems", isAuthenticated, authorizeRoles("Teacher", "Admin", "TA"), addProblemsToContest);
+router.post("/:id/problems", isAuthenticated, authorizeRoles("Teacher", "Sadmin", "TA"), addProblemsToContest);
 router.put("/:id/register", isAuthenticated, registerForContest);
 router.get("/:id/leaderboard", getLeaderboard);
 router.get("/:id/submissions", isAuthenticated, getContestSubmissions);
 router.get("/:id", getContestById);
-router.post("/:id/end", isAuthenticated, authorizeRoles("Teacher", "Admin", "TA"), endContest);
+router.post("/:id/end", isAuthenticated, authorizeRoles("Teacher", "Sadmin", "TA"), endContest);
 
 export default router;

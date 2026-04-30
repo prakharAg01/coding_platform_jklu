@@ -98,7 +98,7 @@ export const updateExam = catchAsyncError(async (req, res, next) => {
 
   const isOwner = exam.created_by?.toString() === req.user._id.toString();
   const isModerator = exam.moderators.some(m => m.toString() === req.user._id.toString());
-  if (!isOwner && !isModerator && req.user.role !== "Admin") {
+  if (!isOwner && !isModerator && req.user.role !== "Sadmin") {
     return next(new ErrorHandler("Not authorized to update this exam.", 403));
   }
 
@@ -141,7 +141,7 @@ export const deleteExam = catchAsyncError(async (req, res, next) => {
   if (!exam) return next(new ErrorHandler("Exam not found.", 404));
 
   const isOwner = exam.created_by?.toString() === req.user._id.toString();
-  if (!isOwner && req.user.role !== "Admin") {
+  if (!isOwner && req.user.role !== "Sadmin") {
     return next(new ErrorHandler("Only the owner can delete this exam.", 403));
   }
 
@@ -158,7 +158,7 @@ export const addProblemsToExam = catchAsyncError(async (req, res, next) => {
 
   const isOwner = exam.created_by?.toString() === req.user._id.toString();
   const isModerator = exam.moderators.some(m => m.toString() === req.user._id.toString());
-  if (!isOwner && !isModerator && req.user.role !== "Admin") {
+  if (!isOwner && !isModerator && req.user.role !== "Sadmin") {
     return next(new ErrorHandler("Not authorized.", 403));
   }
 
@@ -211,7 +211,7 @@ export const getExamsForClass = catchAsyncError(async (req, res, next) => {
   const isTeacher = classDetails.teacher.toString() === req.user._id.toString();
   const isStudent = classDetails.students.some(s => s.toString() === req.user._id.toString());
 
-  if (!isTeacher && !isStudent && req.user.role !== "Admin") {
+  if (!isTeacher && !isStudent && req.user.role !== "Sadmin") {
     return next(new ErrorHandler("Not authorized.", 403));
   }
 

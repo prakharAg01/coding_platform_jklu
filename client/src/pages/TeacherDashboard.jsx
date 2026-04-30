@@ -846,7 +846,7 @@ export default function TeacherDashboard() {
   }, []);
 
   if (!isAuthenticated) return <Navigate to="/auth" />;
-  if (!["Teacher", "Admin"].includes(user?.role)) return <Navigate to="/" />;
+  if (!["Teacher", "Sadmin"].includes(user?.role)) return <Navigate to="/" />;
 
   if (showCreateExam) {
     return (

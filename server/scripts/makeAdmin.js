@@ -19,7 +19,7 @@ await mongoose.connect(process.env.DATABASE_URI);
 
 const user = await User.findOneAndUpdate(
   { email, accountVerified: true },
-  { role: "Admin" },
+  { role: "Sadmin" },
   { new: true }
 );
 

@@ -14,7 +14,7 @@ const STATUS_CONFIG = {
   draft: { label: "Draft", color: "bg-gray-500/10 text-gray-400 border-gray-500/30", icon: "⚪" },
 };
 
-const TEACHER_ROLES = new Set(["Teacher", "Admin", "TA"]);
+const TEACHER_ROLES = new Set(["Teacher", "Sadmin", "TA"]);
 
 function TeacherTopBar({ contestName }) {
   const navigate = useNavigate();

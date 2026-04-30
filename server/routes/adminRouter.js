@@ -15,7 +15,7 @@ import { isAuthenticated, authorizeRoles } from "../middlewares/auth.js";
 
 const router = express.Router();
 
-router.use(isAuthenticated, authorizeRoles("Admin"));
+router.use(isAuthenticated, authorizeRoles("Sadmin"));
 
 router.get("/stats", getPlatformStats);
 router.get("/users", getAllUsers);

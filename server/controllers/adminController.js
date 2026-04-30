@@ -71,7 +71,7 @@ export const getAllUsers = catchAsyncError(async (req, res, next) => {
 export const updateUserRole = catchAsyncError(async (req, res, next) => {
   const { id } = req.params;
   const { role } = req.body;
-  if (!["Student", "Teacher", "Admin", "TA"].includes(role)) {
+  if (!["Student", "Teacher", "Sadmin", "TA"].includes(role)) {
     return next(new ErrorHandler("Invalid role.", 400));
   }
   if (id === req.user._id.toString()) {

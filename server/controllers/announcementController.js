@@ -10,7 +10,7 @@ export const createAnnouncement = catchAsyncError(async (req, res, next) => {
   }
   const classDetails = await Class.findById(class_id);
   if (!classDetails) return next(new ErrorHandler("Class not found.", 404));
-  if (classDetails.teacher.toString() !== req.user._id.toString() && req.user.role !== "Admin") {
+  if (classDetails.teacher.toString() !== req.user._id.toString() && req.user.role !== "Sadmin") {
     return next(new ErrorHandler("Not authorized.", 403));
   }
   const announcement = await Announcement.create({ class_id, author_id: req.user._id, title, content });
@@ -30,7 +30,7 @@ export const getAnnouncementsForClass = catchAsyncError(async (req, res, next) =
 export const deleteAnnouncement = catchAsyncError(async (req, res, next) => {
   const announcement = await Announcement.findById(req.params.id);
   if (!announcement) return next(new ErrorHandler("Announcement not found.", 404));
-  if (announcement.author_id.toString() !== req.user._id.toString() && req.user.role !== "Admin") {
+  if (announcement.author_id.toString() !== req.user._id.toString() && req.user.role !== "Sadmin") {
     return next(new ErrorHandler("Not authorized.", 403));
   }
   await Announcement.findByIdAndDelete(req.params.id);

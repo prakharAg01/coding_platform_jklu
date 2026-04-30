@@ -17,7 +17,7 @@ export const createLab = catchAsyncError(async (req, res, next) => {
     return next(new ErrorHandler("Class not found.", 404));
   }
 
-  if (classDetails.teacher.toString() !== req.user._id.toString() && req.user.role !== "Admin") {
+  if (classDetails.teacher.toString() !== req.user._id.toString() && req.user.role !== "Sadmin") {
     return next(new ErrorHandler("Not authorized to manage labs for this class.", 403));
   }
 
@@ -64,7 +64,7 @@ export const updateLab = catchAsyncError(async (req, res, next) => {
 
   const classDetails = await Class.findById(lab.class_id);
 
-  if (classDetails.teacher.toString() !== req.user._id.toString() && req.user.role !== "Admin") {
+  if (classDetails.teacher.toString() !== req.user._id.toString() && req.user.role !== "Sadmin") {
     return next(new ErrorHandler("Not authorized to manage labs for this class.", 403));
   }
 
@@ -89,7 +89,7 @@ export const getLabsForClass = catchAsyncError(async (req, res, next) => {
   // Use a lightweight existence check instead of loading the full class with all students
   const isTeacher = !!(await Class.exists({ _id: classId, teacher: req.user._id }));
   const isStudent = !!(await Class.exists({ _id: classId, students: req.user._id }));
-  const isAdmin = req.user.role === "Admin";
+  const isAdmin = req.user.role === "Sadmin";
 
   if (!isTeacher && !isStudent && !isAdmin) {
     // Verify the class exists before returning 403 vs 404
@@ -129,11 +129,11 @@ export const getLabDetails = catchAsyncError(async (req, res, next) => {
     (student) => student.toString() === req.user._id.toString()
   );
 
-  if (!isTeacher && !isStudent && req.user.role !== "Admin") {
+  if (!isTeacher && !isStudent && req.user.role !== "Sadmin") {
     return next(new ErrorHandler("Not authorized to view this lab.", 403));
   }
 
-  if (!isTeacher && !lab.isVisible && req.user.role !== "Admin") {
+  if (!isTeacher && !lab.isVisible && req.user.role !== "Sadmin") {
     return next(new ErrorHandler("This lab is not visible to students.", 403));
   }
 
@@ -151,7 +151,7 @@ export const getGradesForClass = catchAsyncError(async (req, res, next) => {
   if (!classDetails) return next(new ErrorHandler("Class not found.", 404));
 
   const isTeacher = classDetails.teacher.toString() === req.user._id.toString();
-  if (!isTeacher && req.user.role !== "Admin") {
+  if (!isTeacher && req.user.role !== "Sadmin") {
     return next(new ErrorHandler("Not authorized.", 403));
   }
 

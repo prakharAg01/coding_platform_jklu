@@ -8,8 +8,8 @@ import { isAuthenticated, authorizeRoles } from "../middlewares/auth.js";
 
 const router = express.Router();
 
-router.post("/", isAuthenticated, authorizeRoles("Teacher", "Admin"), createAnnouncement);
+router.post("/", isAuthenticated, authorizeRoles("Teacher", "Sadmin"), createAnnouncement);
 router.get("/class/:classId", isAuthenticated, getAnnouncementsForClass);
-router.delete("/:id", isAuthenticated, authorizeRoles("Teacher", "Admin"), deleteAnnouncement);
+router.delete("/:id", isAuthenticated, authorizeRoles("Teacher", "Sadmin"), deleteAnnouncement);
 
 export default router;

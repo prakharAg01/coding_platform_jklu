@@ -50,7 +50,7 @@ export const createClass = catchAsyncError(async (req, res, next) => {
 export const getClasses = catchAsyncError(async (req, res, next) => {
   let classes = [];
 
-  if (req.user.role === "Teacher" || req.user.role === "Admin") {
+  if (req.user.role === "Teacher" || req.user.role === "Sadmin") {
     // Teachers see classes they created — include student list for management
     classes = await Class.find({ teacher: req.user._id })
       .populate("teacher", "name email")
@@ -96,13 +96,13 @@ export const getClassDetails = catchAsyncError(async (req, res, next) => {
     (studentId) => studentId.toString() === req.user._id.toString()
   );
 
-  if (!isTeacher && !isStudent && req.user.role !== "Admin") {
+  if (!isTeacher && !isStudent && req.user.role !== "Sadmin") {
     return next(new ErrorHandler("Not authorized to view this class.", 403));
   }
 
   // To save network bandwidth for students, we strip out the huge students array
   // (Teachers/Admins still need it for the management UI)
-  if (!isTeacher && req.user.role !== "Admin") {
+  if (!isTeacher && req.user.role !== "Sadmin") {
     classDetails.studentCount = classDetails.students.length;
     delete classDetails.students;
   }
@@ -122,7 +122,7 @@ export const toggleJoinStatus = catchAsyncError(async (req, res, next) => {
     return next(new ErrorHandler("Class not found.", 404));
   }
 
-  if (classDetails.teacher.toString() !== req.user._id.toString() && req.user.role !== "Admin") {
+  if (classDetails.teacher.toString() !== req.user._id.toString() && req.user.role !== "Sadmin") {
     return next(new ErrorHandler("Not authorized to modify this class.", 403));
   }
 
@@ -176,7 +176,7 @@ export const removeStudent = catchAsyncError(async (req, res, next) => {
     return next(new ErrorHandler("Class not found.", 404));
   }
 
-  if (classDetails.teacher.toString() !== req.user._id.toString() && req.user.role !== "Admin") {
+  if (classDetails.teacher.toString() !== req.user._id.toString() && req.user.role !== "Sadmin") {
     return next(new ErrorHandler("Not authorized to modify this class.", 403));
   }
 
@@ -204,7 +204,7 @@ export const addStudentByEmail = catchAsyncError(async (req, res, next) => {
   const classDetails = await Class.findById(classId);
   if (!classDetails) return next(new ErrorHandler("Class not found.", 404));
 
-  if (classDetails.teacher.toString() !== req.user._id.toString() && req.user.role !== "Admin") {
+  if (classDetails.teacher.toString() !== req.user._id.toString() && req.user.role !== "Sadmin") {
     return next(new ErrorHandler("Not authorized.", 403));
   }
 

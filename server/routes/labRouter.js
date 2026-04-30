@@ -12,8 +12,8 @@ import { isAuthenticated, authorizeRoles } from "../middlewares/auth.js";
 
 const router = express.Router();
 
-router.post("/create", isAuthenticated, authorizeRoles("Teacher", "Admin"), createLab);
-router.put("/:id/update", isAuthenticated, authorizeRoles("Teacher", "Admin"), updateLab);
+router.post("/create", isAuthenticated, authorizeRoles("Teacher", "Sadmin"), createLab);
+router.put("/:id/update", isAuthenticated, authorizeRoles("Teacher", "Sadmin"), updateLab);
 
 router.get("/class/:classId/grades", isAuthenticated, getGradesForClass);
 router.get("/class/:classId", isAuthenticated, getLabsForClass);

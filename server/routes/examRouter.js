@@ -11,7 +11,7 @@ router.get("/", getExams);
 router.get("/my", isAuthenticated, getMyExams);
 router.get("/class/:classId", isAuthenticated, getExamsForClass);
 router.get("/slug/:slug", getExamBySlug);
-router.post("/", isAuthenticated, authorizeRoles("Teacher", "Admin"), createExam);
+router.post("/", isAuthenticated, authorizeRoles("Teacher", "Sadmin"), createExam);
 router.put("/:id", isAuthenticated, updateExam);
 router.delete("/:id", isAuthenticated, deleteExam);
 router.post("/:id/problems", isAuthenticated, addProblemsToExam);

@@ -8,7 +8,7 @@ import { Context } from "../main";
  *
  * Props:
  *   allowedRoles  – array of role strings that may access this route
- *                   e.g. ["Admin"] or ["Teacher", "Admin"]
+ *                   e.g. ["Sadmin"] or ["Teacher", "Sadmin"]
  *                   If omitted, any authenticated user is allowed.
  *   children      – the page component to render when access is granted
  *

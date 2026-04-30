@@ -206,8 +206,8 @@ function UsersSection() {
     } catch (e) { toast.error(e.response?.data?.message || "Failed"); }
   };
 
-  const roleColors = { Admin: "amber", Teacher: "blue", TA: "purple", Student: "zinc" };
-  const ROLES = ["Student", "Teacher", "TA", "Admin"];
+  const roleColors = { Sadmin: "amber", Teacher: "blue", TA: "purple", Student: "zinc" };
+  const ROLES = ["Student", "Teacher", "TA", "Sadmin"];
 
   return (
     <div>
@@ -1140,7 +1140,7 @@ export default function AdminDashboard() {
   };
 
   if (!isAuthenticated) return <Navigate to="/auth" />;
-  if (user?.role !== "Admin") return <Navigate to="/" />;
+  if (user?.role !== "Sadmin") return <Navigate to="/" />;
 
   const SECTIONS = { overview: OverviewSection, users: UsersSection, whitelist: WhitelistSection, contests: ContestsSection, problems: ProblemsSection, classes: ClassesSection, leaderboard: LeaderboardSection, reports: ReportsSection };
   const ActiveSection = SECTIONS[active];

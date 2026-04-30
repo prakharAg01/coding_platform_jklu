@@ -21,7 +21,10 @@ function TeacherTopBar({ contestName }) {
   return (
     <header className="h-14 bg-zinc-900 border-b border-white/10 flex items-center px-6 gap-4 sticky top-0 z-50">
       <button
-        onClick={() => navigate('/ta-dashboard')}
+        onClick={() => {
+          const isExam = window.location.pathname.includes('/manage-exam');
+          navigate(isExam ? '/teacher-dashboard' : '/ta-dashboard');
+        }}
         className="flex items-center gap-1.5 text-sm text-zinc-400 hover:text-white transition-colors"
       >
         <ChevronLeft size={16} /> Back to Dashboard
@@ -49,8 +52,10 @@ export default function ManageContestPage() {
   useEffect(() => {
     const fetchContest = async () => {
       try {
-        const { data } = await api.get(`/contests/${id}`);
-        setContest(data.contest);
+        const isExam = window.location.pathname.includes('/manage-exam');
+        const endpoint = isExam ? `/exams/${id}` : `/contests/${id}`;
+        const { data } = await api.get(endpoint);
+        setContest(isExam ? data.exam : data.contest);
 
         const now = new Date();
         const start = new Date(data.contest.start_time);
@@ -63,7 +68,8 @@ export default function ManageContestPage() {
       } catch (err) {
         console.error("Failed to fetch contest:", err);
         if (err.response?.status === 403 || err.response?.status === 404) {
-          navigate("/ta-dashboard", { replace: true });
+          const isExam = window.location.pathname.includes('/manage-exam');
+          navigate(isExam ? "/teacher-dashboard" : "/ta-dashboard", { replace: true });
         }
       } finally {
         setLoading(false);
@@ -161,8 +167,8 @@ export default function ManageContestPage() {
           <AlertTriangle size={48} className="text-yellow-500 mb-4" />
           <h2 className="text-xl font-semibold mb-2">Contest Not Found</h2>
           <p className="text-muted mb-4">The contest you&lsquo;re trying to manage doesn&lsquo;t exist.</p>
-          <Link to="/ta-dashboard" className="text-brand-yellow hover:underline">
-            Back to TA Dashboard
+          <Link to={window.location.pathname.includes('/manage-exam') ? "/teacher-dashboard" : "/ta-dashboard"} className="text-brand-yellow hover:underline">
+            Back to Dashboard
           </Link>
         </div>
       );
@@ -173,8 +179,8 @@ export default function ManageContestPage() {
           <AlertTriangle size={48} className="text-yellow-500 mb-4" />
           <h2 className="text-xl font-semibold mb-2">Contest Not Found</h2>
           <p className="text-muted mb-4">The contest you&lsquo;re trying to manage doesn&lsquo;t exist.</p>
-          <Link to="/ta-dashboard" className="text-brand-yellow hover:underline">
-            Back to TA Dashboard
+          <Link to={window.location.pathname.includes('/manage-exam') ? "/teacher-dashboard" : "/ta-dashboard"} className="text-brand-yellow hover:underline">
+            Back to Dashboard
           </Link>
         </div>
       </MainLayout>
@@ -189,7 +195,7 @@ export default function ManageContestPage() {
       <div>
         {!isTeacher && (
           <Link
-            to="/ta-dashboard"
+            to={window.location.pathname.includes('/manage-exam') ? "/teacher-dashboard" : "/ta-dashboard"}
             className="text-muted hover:text-white text-sm font-medium flex items-center gap-1 mb-4 w-fit transition-colors"
           >
             <ChevronLeft size={16} /> Back to Dashboard
@@ -217,7 +223,7 @@ export default function ManageContestPage() {
           </div>
 
           <Link
-            to={`/contests/${id}`}
+            to={window.location.pathname.includes('/manage-exam') ? `/exams/${id}` : `/contests/${id}`}
             className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg bg-white text-bg-dark hover:opacity-90 transition-all shadow-lg"
           >
             View Contest Page
@@ -311,7 +317,7 @@ export default function ManageContestPage() {
                   </div>
                 )}
                 <div className="text-center">
-                  <Link to={`/contests/${id}`} className="text-brand-yellow hover:underline text-sm inline-block">
+                  <Link to={window.location.pathname.includes('/manage-exam') ? `/exams/${id}` : `/contests/${id}`} className="text-brand-yellow hover:underline text-sm inline-block">
                     View Full Contest Page →
                   </Link>
                 </div>

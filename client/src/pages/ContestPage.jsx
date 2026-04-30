@@ -17,7 +17,10 @@ function TeacherTopBar({ contestName, contestId }) {
   return (
     <header className="h-14 bg-zinc-900 border-b border-white/10 flex items-center px-6 gap-4 sticky top-0 z-50">
       <button
-        onClick={() => navigate(`/manage-contest/${contestId}`)}
+        onClick={() => {
+          const isExam = window.location.pathname.includes('/exams/');
+          navigate(isExam ? `/manage-exam/${contestId}` : `/manage-contest/${contestId}`);
+        }}
         className="flex items-center gap-1.5 text-sm text-zinc-400 hover:text-white transition-colors"
       >
         <ChevronLeft size={16} /> Back to Manage
@@ -46,10 +49,13 @@ export default function ContestPage() {
     const fetchContest = async () => {
       try {
         let response;
+        const isExam = window.location.pathname.includes('/exams/');
         const isObjectId = id && /^[0-9a-fA-F]{24}$/.test(id);
-        const url = isObjectId ? `/contests/${id}` : `/contests/slug/${id}`;
+        const url = isObjectId 
+          ? (isExam ? `/exams/${id}` : `/contests/${id}`) 
+          : (isExam ? `/exams/slug/${id}` : `/contests/slug/${id}`);
         response = await api.get(url);
-        const contestData = response.data.contest;
+        const contestData = isExam ? response.data.exam : response.data.contest;
         setContest({...contestData});
       } catch (err) {
         console.error('Error fetching contest:', err.response?.data || err.message);
@@ -65,12 +71,15 @@ export default function ContestPage() {
     const fetchLeaderboard = async () => {
       try {
         let endpoint;
+        const isExam = window.location.pathname.includes('/exams/');
         const isObjectId = /^[0-9a-fA-F]{24}$/.test(id);
         if (isObjectId) {
           endpoint = `/contests/${id}/leaderboard`;
         } else {
-          const { data } = await api.get(`/contests/slug/${id}`);
-          endpoint = `/contests/${data.contest._id}/leaderboard`;
+          const url = isExam ? `/exams/slug/${id}` : `/contests/slug/${id}`;
+          const { data } = await api.get(url);
+          const entityId = isExam ? data.exam._id : data.contest._id;
+          endpoint = `/contests/${entityId}/leaderboard`;
         }
         const { data } = await api.get(endpoint);
         setLeaderboard(data.leaderboard || []);
@@ -227,7 +236,7 @@ export default function ContestPage() {
                     </div>
                   </div>
                   <Link
-                    to={`/manage-contest/${contest._id}`}
+                    to={window.location.pathname.includes('/exams/') ? `/manage-exam/${contest._id}` : `/manage-contest/${contest._id}`}
                     className="mt-4 w-full inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm bg-amber-400 text-black font-medium hover:bg-amber-300 transition-colors"
                   >
                     ← Back to Manage

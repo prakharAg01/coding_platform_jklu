@@ -715,7 +715,7 @@ function ContestsTab({ onCreateExam, cls }) {
                         {start.toLocaleDateString()} — {end.toLocaleDateString()} · {c.participants?.length ?? 0} participants · {c.problems?.length ?? 0} problems
                       </p>
                     </div>
-                    <Btn variant="ghost" size="sm" onClick={() => navigate(`/manage-contest/${c._id}`)}>
+                    <Btn variant="ghost" size="sm" onClick={() => navigate(`/manage-exam/${c._id}`)}>
                       <ExternalLink size={13} /> Manage
                     </Btn>
                   </Card>
